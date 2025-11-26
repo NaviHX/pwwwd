@@ -17,8 +17,12 @@ pub mod server {
     #[derive(clap::Subcommand)]
     pub enum Load {
         #[command(name = "load")]
-        FromPath { path: String },
-        Restore { path: Option<String> },
+        FromPath {
+            path: String,
+        },
+        Restore {
+            path: Option<String>,
+        },
     }
 
     pub fn default_restore_path() -> Result<String> {
@@ -52,10 +56,10 @@ pub mod server {
     #[derive(clap::Args)]
     #[group(required = false, multiple = false)]
     pub struct Resize {
-        #[arg(long, short)]
+        #[arg(long)]
         pub no_resize: bool,
 
-        #[arg(long, short)]
+        #[arg(long)]
         pub resize: Option<ResizeOption>,
     }
 
@@ -68,4 +72,60 @@ pub mod server {
     }
 
     pub const DEFAULT_RESIZE: ResizeOption = ResizeOption::Crop;
+}
+
+pub mod client {
+    pub use super::server::{Resize, ResizeOption};
+
+    #[derive(clap::Parser)]
+    pub struct Args {
+        #[command(subcommand)]
+        pub subcommand: ClientSubcommand,
+    }
+
+    #[derive(clap::Subcommand)]
+    pub enum ClientSubcommand {
+        #[command(name = "img")]
+        SwitchImage {
+            image: String,
+
+            #[command(flatten)]
+            resize: Resize,
+
+            #[command(flatten)]
+            transition: Transition,
+
+            #[command(flatten)]
+            transition_options: TransitionOptions,
+        },
+
+        Kill,
+    }
+
+    #[derive(clap::Args)]
+    #[group(required = false, multiple = false)]
+    pub struct Transition {
+        #[arg(long)]
+        pub no_transition: bool,
+
+        #[arg(long)]
+        pub transition: Option<TransitionKind>,
+    }
+
+    #[derive(Copy, Clone, clap::ValueEnum)]
+    pub enum TransitionKind {
+        No,
+        Xfd,
+    }
+
+    #[derive(clap::Args)]
+    pub struct TransitionOptions {
+        #[arg(long, name = "transition-duration")]
+        pub duration: f64,
+
+        #[arg(long, name = "transition-fps")]
+        pub fps: f64,
+    }
+
+    pub const DEFAULT_TRANSITION_KIND: TransitionKind = TransitionKind::No;
 }
