@@ -67,3 +67,10 @@ pub fn default_uds_path() -> Result<PathBuf> {
         .map(|p| p.to_owned())
         .ok_or(anyhow!("Didn't find XDG_RUNTIME_DIR"))
 }
+
+/// The daemon's reply type.
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub enum Reply {
+    Ok,
+    Error(String),
+}
