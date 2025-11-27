@@ -63,7 +63,7 @@ pub mod server {
         pub resize: Option<ResizeOption>,
     }
 
-    #[derive(Copy, Clone, clap::ValueEnum)]
+    #[derive(Copy, Clone, clap::ValueEnum, Debug, serde::Serialize, serde::Deserialize)]
     pub enum ResizeOption {
         No,
         Crop,
@@ -112,19 +112,19 @@ pub mod client {
         pub transition: Option<TransitionKind>,
     }
 
-    #[derive(Copy, Clone, clap::ValueEnum)]
+    #[derive(Copy, Clone, clap::ValueEnum, serde::Serialize, serde::Deserialize, Debug)]
     pub enum TransitionKind {
         No,
         Xfd,
     }
 
-    #[derive(clap::Args)]
+    #[derive(Copy, Clone, clap::Args, serde::Serialize, serde::Deserialize, Debug)]
     pub struct TransitionOptions {
         #[arg(long, name = "transition-duration")]
-        pub duration: f64,
+        pub duration: Option<f64>,
 
         #[arg(long, name = "transition-fps")]
-        pub fps: f64,
+        pub fps: Option<f64>,
     }
 
     pub const DEFAULT_TRANSITION_KIND: TransitionKind = TransitionKind::No;
