@@ -1,14 +1,71 @@
 use common::ipc;
-use std::sync::{
-    Arc,
-    atomic::{AtomicBool, Ordering},
+use std::{
+    io,
+    sync::{
+        Arc,
+        atomic::{AtomicBool, Ordering},
+    },
 };
-use tokio::{net::UnixListener, sync::oneshot};
-use tracing::{error, warn};
+use tokio::{
+    net::{UnixListener, UnixStream},
+    select,
+    sync::oneshot,
+    task::JoinHandle,
+};
+use tracing::{error, info, warn};
 
 pub struct Server {
     uds_listener: UnixListener,
     busy_flag: Arc<AtomicBool>,
+
+    stop_signal_rx: oneshot::Receiver<()>,
+}
+
+impl Server {
+    pub fn new(uds_addr: &str) -> Result<(Self, ServerHandle), io::Error> {
+        let uds_listener = UnixListener::bind(uds_addr)?;
+        let busy_flag = Arc::new(AtomicBool::new(false));
+        let (stop_signal_tx, stop_signal_rx) = oneshot::channel();
+        let server_handle = ServerHandle::new(stop_signal_tx);
+
+        Ok((
+            Self {
+                uds_listener,
+                busy_flag,
+                stop_signal_rx,
+            },
+            server_handle,
+        ))
+    }
+
+    pub fn run(mut self) -> JoinHandle<()> {
+        tokio::spawn(async move {
+            info!("Server is running ...");
+
+            loop {
+                select! {
+                    msg = &mut self.stop_signal_rx => {
+                        match msg {
+                            Ok(_) => info!("Server received stop signal. Stopping ..."),
+                            Err(_) => warn!("Server handle dropped. Stopping ..."),
+                        }
+
+                        break
+                    }
+
+                    conn = self.uds_listener.accept() => match conn {
+                        Ok((conn, _addr)) => { tokio::spawn(Server::process_conn(conn)); }
+                        Err(e) => error!("Failed to accept a connection: {e}"),
+                    }
+                }
+            }
+        })
+    }
+
+    async fn process_conn(socket: UnixStream) {
+        // TODO: impl processing logic
+        todo!()
+    }
 }
 
 struct TaskHandle<T, E: Default> {
@@ -61,7 +118,7 @@ impl<T, E: Default> TaskHandle<T, E> {
             Some(signal) => match signal.send(Ok(t)) {
                 Ok(()) => {}
                 Err(_) => error!(ERR_SEND),
-            }
+            },
             None => {}
         }
 
@@ -78,7 +135,7 @@ impl<T, E: Default> TaskHandle<T, E> {
             Some(signal) => match signal.send(Err(e)) {
                 Ok(()) => {}
                 Err(_) => error!(ERR_SEND),
-            }
+            },
             None => {}
         }
 
@@ -88,5 +145,19 @@ impl<T, E: Default> TaskHandle<T, E> {
                 Err(_) => error!(ERR_TOGGLE_BUSY),
             }
         }
+    }
+}
+
+pub struct ServerHandle {
+    stop_signal: oneshot::Sender<()>,
+}
+
+impl ServerHandle {
+    pub fn new(stop_signal: oneshot::Sender<()>) -> Self {
+        Self { stop_signal }
+    }
+
+    pub fn stop(self) -> Result<(), ()> {
+        self.stop_signal.send(()).map_err(|_| ())
     }
 }
