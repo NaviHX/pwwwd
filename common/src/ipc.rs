@@ -6,7 +6,7 @@ use crate::cli::{
 };
 use anyhow::{Result, anyhow};
 use serde::{Deserialize, Serialize};
-use std::{io::Write, os::unix::net::UnixStream, path::PathBuf};
+use std::{io::{Read, Write}, os::unix::net::UnixStream, path::PathBuf};
 use rmp_serde::{Serializer, Deserializer};
 
 /// The daemon's reply type. Following a 4-byte `length` big-endian message in socket stream.
@@ -74,7 +74,15 @@ impl Message {
     }
 
     pub fn receive(socket: &mut UnixStream) -> Result<Self> {
-        todo!()
+        let mut len_buf = [0u8; 4];
+        socket.read_exact(&mut len_buf)?;
+        let len = u32::from_be_bytes(len_buf) as usize;
+
+        let mut buf = vec![0; len];
+        socket.read_exact(&mut buf)?;
+
+        let message = Message::deserialize(&mut Deserializer::from_read_ref(&buf))?;
+        Ok(message)
     }
 }
 
@@ -107,6 +115,14 @@ impl Reply {
     }
 
     pub fn receive(socket: &mut UnixStream) -> Result<Self> {
-        todo!()
+        let mut len_buf = [0u8; 4];
+        socket.read_exact(&mut len_buf)?;
+        let len = u32::from_be_bytes(len_buf) as usize;
+
+        let mut buf = vec![0; len];
+        socket.read_exact(&mut buf)?;
+
+        let reply = Reply::deserialize(&mut Deserializer::from_read_ref(&buf))?;
+        Ok(reply)
     }
 }
