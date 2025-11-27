@@ -405,6 +405,7 @@ dependencies = [
  "directories",
  "rmp-serde",
  "serde",
+ "tokio",
 ]
 
 [[package]]

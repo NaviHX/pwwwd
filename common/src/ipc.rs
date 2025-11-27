@@ -84,6 +84,32 @@ impl Message {
         let message = Message::deserialize(&mut Deserializer::from_read_ref(&buf))?;
         Ok(message)
     }
+
+    #[cfg(feature = "async")]
+    pub async fn async_send<T: tokio::io::AsyncWriteExt + Unpin>(&self, socket: &mut T) -> Result<()> {
+        let mut buf = vec![];
+        self.serialize(&mut Serializer::new(&mut buf))?;
+
+        let len = buf.len() as u32;
+        let len_buf = len.to_be_bytes();
+
+        socket.write_all(&len_buf).await?;
+        socket.write_all(&buf).await?;
+        Ok(())
+    }
+
+    #[cfg(feature = "async")]
+    pub async fn async_receive<T: tokio::io::AsyncReadExt + Unpin>(socket: &mut T) -> Result<Self> {
+        let mut len_buf = [0u8; 4];
+        socket.read_exact(&mut len_buf).await?;
+        let len = u32::from_be_bytes(len_buf) as usize;
+
+        let mut buf = vec![0; len];
+        socket.read_exact(&mut buf).await?;
+
+        let message = Message::deserialize(&mut Deserializer::from_read_ref(&buf))?;
+        Ok(message)
+    }
 }
 
 pub fn default_uds_path() -> Result<PathBuf> {
@@ -121,6 +147,32 @@ impl Reply {
 
         let mut buf = vec![0; len];
         socket.read_exact(&mut buf)?;
+
+        let reply = Reply::deserialize(&mut Deserializer::from_read_ref(&buf))?;
+        Ok(reply)
+    }
+
+    #[cfg(feature = "async")]
+    pub async fn async_send<T: tokio::io::AsyncWriteExt + Unpin>(&self, socket: &mut T) -> Result<()> {
+        let mut buf = vec![];
+        self.serialize(&mut Serializer::new(&mut buf))?;
+
+        let len = buf.len() as u32;
+        let len_buf = len.to_be_bytes();
+
+        socket.write_all(&len_buf).await?;
+        socket.write_all(&buf).await?;
+        Ok(())
+    }
+
+    #[cfg(feature = "async")]
+    pub async fn async_receive<T: tokio::io::AsyncReadExt + Unpin>(socket: &mut T) -> Result<Self> {
+        let mut len_buf = [0u8; 4];
+        socket.read_exact(&mut len_buf).await?;
+        let len = u32::from_be_bytes(len_buf) as usize;
+
+        let mut buf = vec![0; len];
+        socket.read_exact(&mut buf).await?;
 
         let reply = Reply::deserialize(&mut Deserializer::from_read_ref(&buf))?;
         Ok(reply)
