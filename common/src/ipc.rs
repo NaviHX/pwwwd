@@ -4,7 +4,9 @@ use crate::cli::{
     },
     server::DEFAULT_RESIZE,
 };
+use anyhow::{Result, anyhow};
 use serde::{Deserialize, Serialize};
+use std::path::PathBuf;
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub enum Message {
@@ -56,4 +58,12 @@ impl Message {
             ClientSubcommand::Kill => Self::Kill,
         }
     }
+}
+
+pub fn default_uds_path() -> Result<PathBuf> {
+    let dirs =
+        directories::BaseDirs::new().ok_or(anyhow!("Cannot create `BaseDirs` to get uds path"))?;
+    dirs.runtime_dir()
+        .map(|p| p.to_owned())
+        .ok_or(anyhow!("Didn't find XDG_RUNTIME_DIR"))
 }
