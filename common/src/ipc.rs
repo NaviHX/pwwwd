@@ -6,8 +6,10 @@ use crate::cli::{
 };
 use anyhow::{Result, anyhow};
 use serde::{Deserialize, Serialize};
-use std::path::PathBuf;
+use std::{io::Write, os::unix::net::UnixStream, path::PathBuf};
+use rmp_serde::{Serializer, Deserializer};
 
+/// The daemon's reply type. Following a 4-byte `length` big-endian message in socket stream.
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub enum Message {
     Kill,
@@ -58,6 +60,22 @@ impl Message {
             ClientSubcommand::Kill => Self::Kill,
         }
     }
+
+    pub fn send(&self, socket: &mut UnixStream) -> Result<()> {
+        let mut buf = vec![];
+        self.serialize(&mut Serializer::new(&mut buf))?;
+
+        let len = buf.len() as u32;
+        let len_buf = len.to_be_bytes();
+
+        socket.write_all(&len_buf)?;
+        socket.write_all(&buf)?;
+        Ok(())
+    }
+
+    pub fn receive(socket: &mut UnixStream) -> Result<Self> {
+        todo!()
+    }
 }
 
 pub fn default_uds_path() -> Result<PathBuf> {
@@ -68,9 +86,27 @@ pub fn default_uds_path() -> Result<PathBuf> {
         .ok_or(anyhow!("Didn't find XDG_RUNTIME_DIR"))
 }
 
-/// The daemon's reply type.
+/// The daemon's reply type. Following a 4-byte `length` big-endian message in socket stream.
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub enum Reply {
     Ok,
     Error(String),
+}
+
+impl Reply {
+    pub fn send(&self, socket: &mut UnixStream) -> Result<()> {
+        let mut buf = vec![];
+        self.serialize(&mut Serializer::new(&mut buf))?;
+
+        let len = buf.len() as u32;
+        let len_buf = len.to_be_bytes();
+
+        socket.write_all(&len_buf)?;
+        socket.write_all(&buf)?;
+        Ok(())
+    }
+
+    pub fn receive(socket: &mut UnixStream) -> Result<Self> {
+        todo!()
+    }
 }
