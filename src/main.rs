@@ -24,11 +24,6 @@ async fn main() -> Result<()> {
     };
     builder = builder.with_img_path(image_path);
 
-    // TODO: implement resize mechanism.
-    warn!(
-        "Currently `pwwwd` doesn't `resize` options other than `stretch`.\
-        All other options will fallback to `stretch`"
-    );
     let resize = if args.resize.no_resize {
         server_cli::ResizeOption::No
     } else {
