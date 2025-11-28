@@ -1,10 +1,9 @@
 use common::ipc;
 use std::{
-    io,
-    sync::{
+    io, path::Path, sync::{
         Arc,
         atomic::{AtomicBool, Ordering},
-    },
+    }
 };
 use tokio::{
     net::{UnixListener, UnixStream, unix::SocketAddr},
@@ -21,7 +20,7 @@ pub struct Server {
 }
 
 impl Server {
-    pub fn new(uds_addr: &str) -> Result<(Self, ServerHandle), io::Error> {
+    pub fn new(uds_addr: impl AsRef<Path>) -> Result<(Self, ServerHandle), io::Error> {
         let uds_listener = UnixListener::bind(uds_addr)?;
         let (stop_signal_tx, stop_signal_rx) = oneshot::channel();
         let server_handle = ServerHandle::new(stop_signal_tx);
