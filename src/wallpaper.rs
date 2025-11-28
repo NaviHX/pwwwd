@@ -249,6 +249,7 @@ impl WallpaperBuilder {
             layer_surface,
             exited: false,
             first_configured: false,
+            damaged: true,
 
             registry_state,
             output_state,
@@ -277,8 +278,22 @@ impl WallpaperBuilder {
 
 pub struct Wallpaper {
     layer_surface: LayerSurface,
+
+    // States
+    /// Whether the daemon exited. If this flag is true, we should stop the event loop and exit.
     pub exited: bool,
+    /// Whether the daemon finished the first configuration. If this flag is false, we cannot
+    /// render to the surface and commit. Once `LayerShellHandler::configure` is called, this flag
+    /// will be set to true.
     first_configured: bool,
+    /// Whether we have something new to be drawed. `draw` method will render to the surface and
+    /// commit if both `first_configured` and `damaged` are true. This flag will be set to true
+    /// when:
+    ///
+    /// 1. A `new_size` is received by the daemon from the `LayerShellHandler::configure` method.
+    /// 2. TODO: A new image path is received by the daemon from the client.
+    /// 3. TODO: The daemon is doing transition work between two images.
+    damaged: bool,
 
     // Wayland event handlers,
     registry_state: RegistryState,
@@ -318,6 +333,12 @@ impl Wallpaper {
             warn!("The surface hasn't be configured yet. Stop drawing ...");
             return;
         }
+
+        if !self.damaged {
+            debug!("The surface has nothing new to draw. Stop drawing ...");
+            return;
+        }
+        self.damaged = false;
 
         debug!("Damaging the whole surface ...");
         let width = self.config.width as i32;
@@ -518,6 +539,7 @@ impl LayerShellHandler for Wallpaper {
             return;
         }
 
+        self.damaged = true;
         self.config(configure, conn, qh);
         self.draw(conn, qh);
     }
