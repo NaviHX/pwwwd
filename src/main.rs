@@ -48,7 +48,40 @@ async fn main() -> Result<()> {
         .await?;
 
     loop {
-        event_queue.blocking_dispatch(&mut wallpaper)?;
+        // Flush the outgoing buffers to ensure that the server does receive the messages we've
+        // sent.
+        event_queue.flush()?;
+
+        // If other threads might be reading the wayland socket as well, make sure we don't have
+        // any pending events.
+        //
+        // event_queue.dispatch_pending(&mut wallpapre)?;
+
+        // Put in place some internal synchronization to prepare for the fact that we're going to
+        // wait for events on the socket and read them.
+        let read_guard = loop {
+            match event_queue.prepare_read() {
+                Some(g) => break g,
+                None => {
+                    event_queue.dispatch_pending(&mut wallpaper)?;
+                }
+            }
+        };
+
+        // Now we can wait for the wayland socket to be readable.
+        //
+        // TODO: For now, there is no source of events, except the wayland socket, so we just wait
+        // for the readiness of this socket. When we come to handle events from other sources (e.g.
+        // messages sent by the client through Unix domain socket), use the `select!` macro to wait
+        // for multiple sources.
+        {
+            let fd = read_guard.connection_fd();
+            let fd = tokio::io::unix::AsyncFd::new(fd)?;
+            let _ = fd.readable().await?;
+        }
+
+        read_guard.read()?;
+        event_queue.dispatch_pending(&mut wallpaper)?;
 
         if wallpaper.exited {
             break;
