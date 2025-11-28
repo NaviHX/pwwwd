@@ -7,7 +7,7 @@ use std::{
     },
 };
 use tokio::{
-    net::{UnixListener, UnixStream},
+    net::{UnixListener, UnixStream, unix::SocketAddr},
     select,
     sync::oneshot,
     task::JoinHandle,
@@ -38,7 +38,11 @@ impl Server {
         ))
     }
 
-    pub fn run(mut self) -> JoinHandle<()> {
+    pub fn run<FN, F>(mut self, handler: FN) -> JoinHandle<()>
+    where
+        FN: Send + Fn(UnixStream, SocketAddr) -> F + 'static,
+        F: Future<Output = ()> + Send + 'static,
+    {
         tokio::spawn(async move {
             info!("Server is running ...");
 
@@ -54,17 +58,15 @@ impl Server {
                     }
 
                     conn = self.uds_listener.accept() => match conn {
-                        Ok((conn, _addr)) => { tokio::spawn(Server::process_conn(conn)); }
+                        Ok((conn, addr)) => {
+                            let task = handler(conn, addr);
+                            tokio::spawn(task);
+                        }
                         Err(e) => error!("Failed to accept a connection: {e}"),
                     }
                 }
             }
         })
-    }
-
-    async fn process_conn(socket: UnixStream) {
-        // TODO: impl processing logic
-        todo!()
     }
 }
 

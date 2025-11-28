@@ -7,6 +7,8 @@ use common::cli::server as server_cli;
 use tracing::{info, warn};
 use wayland_client::{Connection, globals::registry_queue_init};
 
+use crate::server::Server;
+
 #[tokio::main]
 async fn main() -> Result<()> {
     tracing_subscriber::fmt::init();
