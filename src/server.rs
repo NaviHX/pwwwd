@@ -16,7 +16,6 @@ use tracing::{error, info, warn};
 
 pub struct Server {
     uds_listener: UnixListener,
-    busy_flag: Arc<AtomicBool>,
 
     stop_signal_rx: oneshot::Receiver<()>,
 }
@@ -24,14 +23,12 @@ pub struct Server {
 impl Server {
     pub fn new(uds_addr: &str) -> Result<(Self, ServerHandle), io::Error> {
         let uds_listener = UnixListener::bind(uds_addr)?;
-        let busy_flag = Arc::new(AtomicBool::new(false));
         let (stop_signal_tx, stop_signal_rx) = oneshot::channel();
         let server_handle = ServerHandle::new(stop_signal_tx);
 
         Ok((
             Self {
                 uds_listener,
-                busy_flag,
                 stop_signal_rx,
             },
             server_handle,
