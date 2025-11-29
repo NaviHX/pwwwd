@@ -1,10 +1,13 @@
 use common::ipc;
 use std::{
-    io, path::Path, sync::{
+    io,
+    path::Path,
+    sync::{
         Arc,
         atomic::{AtomicBool, Ordering},
-    }
+    },
 };
+use thiserror::Error;
 use tokio::{
     net::{UnixListener, UnixStream, unix::SocketAddr},
     select,
@@ -66,83 +69,79 @@ impl Server {
     }
 }
 
-struct TaskHandle<T, E: Default> {
-    busy_flag: Option<Arc<AtomicBool>>,
-    signal: Option<oneshot::Sender<Result<T, E>>>,
+pub struct TaskHandle {
+    busy_flag: Arc<AtomicBool>,
 }
 
-const DROP_UNRELEASED_TASK_HANDLE: &str = "The task handle will be dropped,\
-    but `signal` and `busy_flag` is not released!";
-const ERR_SEND: &str = "Encountered error when send back signal to UDS server!\
-    Maybe the receiver has already been droped!";
 const ERR_TOGGLE_BUSY: &str = "Trying to release the busy_flag,\
     but it has already been released!";
 
-impl<T, E: Default> Drop for TaskHandle<T, E> {
-    fn drop(&mut self) {
-        if self.signal.is_some() || self.busy_flag.is_some() {
-            #[cfg(not(feature = "panic-dropping-unreleased-task-handle"))]
-            warn!(DROP_UNRELEASED_TASK_HANDLE);
-            #[cfg(feature = "panic-dropping-unreleased-task-handle")]
-            panic!(DROP_UNRELEASED_TASK_HANDLE);
-        }
+impl TaskHandle {
+    pub fn new(busy_flag: Arc<AtomicBool>) -> Self {
+        Self { busy_flag }
+    }
 
-        if let Some(signal) = self.signal.take() {
-            match signal.send(Err(E::default())) {
-                Ok(()) => {}
-                Err(_) => error!(ERR_SEND),
-            }
-        }
-
-        if let Some(busy_flag) = self.busy_flag.take() {
-            match busy_flag.compare_exchange(true, false, Ordering::AcqRel, Ordering::Acquire) {
-                Ok(_) => {}
-                Err(_) => error!(ERR_TOGGLE_BUSY),
+    fn finish(&mut self) {
+        match self.busy_flag.compare_exchange(true, false, Ordering::AcqRel, Ordering::Acquire) {
+            Ok(_) => {}
+            Err(_) => {
+                #[cfg(not(feature = "panic-double-toggle-busy"))]
+                error!(ERR_TOGGLE_BUSY);
+                #[cfg(feature = "panic-double-toggle-busy")]
+                panic!(ERR_TOGGLE_BUSY);
             }
         }
     }
 }
 
-impl<T, E: Default> TaskHandle<T, E> {
-    pub fn new(
-        busy_flag: Option<Arc<AtomicBool>>,
-        signal: Option<oneshot::Sender<Result<T, E>>>,
-    ) -> Self {
-        Self { busy_flag, signal }
+impl Drop for TaskHandle {
+    fn drop(&mut self) {
+        self.finish()
+    }
+}
+
+pub struct TaskHub {
+    busy_flag: Arc<AtomicBool>,
+}
+
+#[derive(Error, Debug)]
+pub enum TaskHubError {
+    #[error("The task hub is busy now")]
+    Busy,
+}
+
+impl TaskHub {
+    pub fn new() -> Self {
+        Self {
+            busy_flag: Arc::new(false.into()),
+        }
     }
 
-    pub fn succ(mut self, t: T) {
-        match self.signal.take() {
-            Some(signal) => match signal.send(Ok(t)) {
-                Ok(()) => {}
-                Err(_) => error!(ERR_SEND),
-            },
-            None => {}
+    fn create_handle(
+        &self,
+    ) -> Result<TaskHandle, TaskHubError> {
+        if let Err(_) =
+            self.busy_flag
+                .compare_exchange(false, true, Ordering::AcqRel, Ordering::Acquire)
+        {
+            return Err(TaskHubError::Busy);
         }
 
-        if let Some(busy_flag) = self.busy_flag.take() {
-            match busy_flag.compare_exchange(true, false, Ordering::AcqRel, Ordering::Acquire) {
-                Ok(_) => {}
-                Err(_) => error!(ERR_TOGGLE_BUSY),
-            }
-        }
+        Ok(TaskHandle::new(self.busy_flag.clone()))
     }
 
-    pub fn fail(mut self, e: E) {
-        match self.signal.take() {
-            Some(signal) => match signal.send(Err(e)) {
-                Ok(()) => {}
-                Err(_) => error!(ERR_SEND),
-            },
-            None => {}
-        }
-
-        if let Some(busy_flag) = self.busy_flag.take() {
-            match busy_flag.compare_exchange(true, false, Ordering::AcqRel, Ordering::Acquire) {
-                Ok(_) => {}
-                Err(_) => error!(ERR_TOGGLE_BUSY),
-            }
-        }
+    pub fn exclusively_exec<FN, F, ARG, T>(
+        &self,
+        f: FN,
+        arg: ARG,
+    ) -> Result<impl Future<Output = T> + Send + 'static, TaskHubError>
+    where
+        FN: Fn(TaskHandle, ARG) -> F + Send + 'static,
+        F: Future<Output = T> + Send + 'static,
+    {
+        let handle = self.create_handle()?;
+        let fut = f(handle, arg);
+        Ok(fut)
     }
 }
 
