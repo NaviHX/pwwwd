@@ -1,13 +1,14 @@
 mod server;
 mod wallpaper;
 
-use anyhow::Result;
+use anyhow::{Result, anyhow};
 use clap::Parser;
 use common::cli::server as server_cli;
-use tracing::{info, warn};
+use std::sync::Arc;
+use tracing::{error, info, warn};
 use wayland_client::{Connection, globals::registry_queue_init};
 
-use crate::server::Server;
+use crate::server::{Server, TaskHub};
 
 #[tokio::main]
 async fn main() -> Result<()> {
@@ -43,6 +44,22 @@ async fn main() -> Result<()> {
     let mut wallpaper = builder
         .build(&conn, &globals, &qh, Option::<String>::None)
         .await?;
+
+    let (server, server_handle) = Server::new(common::ipc::default_uds_path()?)?;
+    let task_hub = Arc::new(TaskHub::new());
+
+    let server_join_handle = server.run(move |socket, addr| {
+        let task_hub = task_hub.clone();
+
+        async move {
+            match task_hub.exclusively_exec(|task_handle, ()| async {
+                // TODO: impl connection processing logic
+            }, ()) {
+                Ok(fut) => fut.await,
+                Err(e) => error!("{e}"),
+            }
+        }
+    });
 
     loop {
         // Flush the outgoing buffers to ensure that the server does receive the messages we've
@@ -85,7 +102,12 @@ async fn main() -> Result<()> {
         }
     }
 
+    server_handle
+        .stop()
+        .map_err(|_| anyhow!("Server had stopped before the daemon exited"))?;
+    server_join_handle.await?;
     info!("Exiting");
+
     Ok(())
 }
 
