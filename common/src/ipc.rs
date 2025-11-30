@@ -6,7 +6,7 @@ use crate::cli::{
 };
 use anyhow::{Result, anyhow};
 use serde::{Deserialize, Serialize};
-use std::{io::{Read, Write}, path::PathBuf};
+use std::{fmt::Display, io::{Read, Write}, path::PathBuf};
 use rmp_serde::{Serializer, Deserializer};
 
 /// The daemon's reply type. Following a 4-byte `length` big-endian message in socket stream.
@@ -21,10 +21,10 @@ pub enum Message {
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct ImageArgs {
-    path: String,
-    resize: ResizeOption,
-    transition: TransitionKind,
-    transition_options: TransitionOptions,
+    pub path: String,
+    pub resize: ResizeOption,
+    pub transition: TransitionKind,
+    pub transition_options: TransitionOptions,
 }
 
 impl Message {
@@ -178,5 +178,12 @@ impl Reply {
 
         let reply = Reply::deserialize(&mut Deserializer::from_read_ref(&buf))?;
         Ok(reply)
+    }
+
+    pub fn from_result<T, E: Display>(result: Result<T, E>) -> Self {
+        match result {
+            Ok(_) => Self::Ok,
+            Err(e) => Self::Error(e.to_string()),
+        }
     }
 }

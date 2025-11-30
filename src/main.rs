@@ -3,7 +3,7 @@ mod wallpaper;
 
 use anyhow::{Result, anyhow};
 use clap::Parser;
-use common::cli::server as server_cli;
+use common::cli::{client::TransitionKind, server as server_cli};
 use common::ipc;
 use std::sync::Arc;
 use tokio::{
@@ -13,6 +13,7 @@ use tokio::{
     sync::{mpsc, oneshot},
 };
 use tracing::{debug, error, info, warn};
+use wayland_client::QueueHandle;
 use wayland_client::{Connection, globals::registry_queue_init};
 
 use crate::{
@@ -137,7 +138,7 @@ async fn main() -> Result<()> {
                             break
                         }
 
-                        if let Err(e) = process_message(task_handle, message, reply_tx, &mut wallpaper).await {
+                        if let Err(e) = process_message(task_handle, message, reply_tx, &qh, &mut wallpaper).await {
                             error!("Failed to process request from client: {e}");
                         }
                     }
@@ -194,16 +195,36 @@ async fn process_message(
     task_handle: TaskHandle,
     message: ipc::Message,
     reply_tx: oneshot::Sender<ipc::Reply>,
+    qh: &QueueHandle<Wallpaper>,
     wallpaper: &mut Wallpaper,
 ) -> Result<()> {
-    warn!("The daemon doesn't support processing messages from clients.");
     debug!("Message received: {message:?}");
 
-    // TODO: impl message processing logic
+    let reply = match message {
+        ipc::Message::Kill => {
+            error!("`Kill` request must be processed in outer scope");
+            ipc::Reply::Ok
+        }
+        ipc::Message::Image { args } => {
+            let image_path = args.path;
+            let resize_option = args.resize;
+            let transition_kind = args.transition;
+            let transition_options = args.transition_options;
+
+            if transition_kind != TransitionKind::No {
+                warn!("The daemon doesn't support transition now. Fallback to immediate-switching");
+            }
+
+            let result = wallpaper
+                .change_image_and_request_frame(qh, &image_path, resize_option)
+                .await;
+
+            ipc::Reply::from_result(result)
+        }
+    };
+
     reply_tx
-        .send(ipc::Reply::Error(
-            "The daemon doesn't support processing messages from clients yet.".to_string(),
-        ))
+        .send(reply)
         .map_err(|_| anyhow!("Cannot send reply back to connection-processing task"))?;
 
     Ok(())

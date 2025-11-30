@@ -114,7 +114,9 @@ pub mod client {
         pub transition: Option<TransitionKind>,
     }
 
-    #[derive(Copy, Clone, clap::ValueEnum, serde::Serialize, serde::Deserialize, Debug)]
+    #[derive(
+        Copy, Clone, clap::ValueEnum, serde::Serialize, serde::Deserialize, Debug, PartialEq, Eq,
+    )]
     pub enum TransitionKind {
         No,
         Xfd,

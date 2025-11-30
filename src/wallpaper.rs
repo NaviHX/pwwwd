@@ -419,14 +419,15 @@ impl Wallpaper {
         qh: &QueueHandle<Self>,
         image_path: &str,
         resize_option: server_cli::ResizeOption,
-    ) {
+    ) -> Result<()> {
         // Load the new image.
         debug!("Trying to load the new image: {image_path}");
         let img = match image::open(image_path) {
             Ok(img) => img,
             Err(e) => {
-                error!("Failed to load the new image in `{image_path}`: {e}");
-                return;
+                let report = format!("Failed to load the new image in `{image_path}`: {e}");
+                error!("{}", report);
+                return Err(anyhow!(report));
             }
         };
         let img = img.to_rgba8();
@@ -496,6 +497,8 @@ impl Wallpaper {
         let wl_surface = self.layer_surface.wl_surface().clone();
         self.layer_surface.wl_surface().frame(qh, wl_surface);
         self.layer_surface.commit();
+
+        Ok(())
     }
 }
 
