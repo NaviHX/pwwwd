@@ -115,9 +115,11 @@ impl Message {
 pub fn default_uds_path() -> Result<PathBuf> {
     let dirs =
         directories::BaseDirs::new().ok_or(anyhow!("Cannot create `BaseDirs` to get uds path"))?;
-    dirs.runtime_dir()
+    let mut dir = dirs.runtime_dir()
         .map(|p| p.to_owned())
-        .ok_or(anyhow!("Didn't find XDG_RUNTIME_DIR"))
+        .ok_or(anyhow!("Didn't find XDG_RUNTIME_DIR"))?;
+    dir.push("pwwwd.sock");
+    Ok(dir)
 }
 
 /// The daemon's reply type. Following a 4-byte `length` big-endian message in socket stream.
