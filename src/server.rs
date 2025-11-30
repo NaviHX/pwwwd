@@ -1,7 +1,7 @@
 use common::ipc;
 use std::{
     io,
-    path::Path,
+    path::{Path, PathBuf},
     sync::{
         Arc,
         atomic::{AtomicBool, Ordering},
@@ -153,7 +153,7 @@ impl TaskHub {
         arg: ARG,
     ) -> Result<impl Future<Output = T> + Send + 'static, TaskHubError>
     where
-        FN: Fn(TaskHandle, ARG) -> F + Send + 'static,
+        FN: FnOnce(TaskHandle, ARG) -> F + Send + 'static,
         F: Future<Output = T> + Send + 'static,
     {
         let handle = self.create_handle()?;

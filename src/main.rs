@@ -4,11 +4,20 @@ mod wallpaper;
 use anyhow::{Result, anyhow};
 use clap::Parser;
 use common::cli::server as server_cli;
+use common::ipc;
 use std::sync::Arc;
-use tracing::{error, info, warn};
+use tokio::{
+    net::UnixStream,
+    select,
+    signal::unix::SignalKind,
+    sync::{mpsc, oneshot},
+};
+use tracing::{debug, error, info, warn};
 use wayland_client::{Connection, globals::registry_queue_init};
 
-use crate::server::{Server, TaskHub};
+use crate::server::{Server, TaskHandle, TaskHub};
+
+const REQUSET_BUFFER_SIZE: usize = 4;
 
 #[tokio::main]
 async fn main() -> Result<()> {
@@ -45,21 +54,32 @@ async fn main() -> Result<()> {
         .build(&conn, &globals, &qh, Option::<String>::None)
         .await?;
 
+    debug!("Trying to build the server ...");
     let (server, server_handle) = Server::new(common::ipc::default_uds_path()?)?;
     let task_hub = Arc::new(TaskHub::new());
+    let (request_tx, mut request_rx) = mpsc::channel(REQUSET_BUFFER_SIZE);
 
     let server_join_handle = server.run(move |socket, addr| {
         let task_hub = task_hub.clone();
+        let request_tx = request_tx.clone();
 
         async move {
-            match task_hub.exclusively_exec(|task_handle, ()| async {
-                // TODO: impl connection processing logic
-            }, ()) {
+            match task_hub.exclusively_exec(
+                |task_handle, ()| async {
+                    match process_connection(task_handle, socket, request_tx).await {
+                        Ok(_) => debug!("Completed the task"),
+                        Err(e) => error!("Failed to complete the task: {e}"),
+                    }
+                },
+                (),
+            ) {
                 Ok(fut) => fut.await,
                 Err(e) => error!("{e}"),
             }
         }
     });
+
+    let mut shutdown_sig = wait_shutdown_sig().await?;
 
     loop {
         // Flush the outgoing buffers to ensure that the server does receive the messages we've
@@ -84,18 +104,47 @@ async fn main() -> Result<()> {
 
         // Now we can wait for the wayland socket to be readable.
         //
-        // TODO: For now, there is no source of events, except the wayland socket, so we just wait
-        // for the readiness of this socket. When we come to handle events from other sources (e.g.
-        // messages sent by the client through Unix domain socket), use the `select!` macro to wait
-        // for multiple sources.
-        {
-            let fd = read_guard.connection_fd();
-            let fd = tokio::io::unix::AsyncFd::new(fd)?;
-            let _ = fd.readable().await?;
-        }
+        // When we come to handle events from other sources (e.g. messages sent by the client
+        // through Unix domain socket), use the `select!` macro to wait for multiple sources.
+        let fd = read_guard.connection_fd();
+        let fd = tokio::io::unix::AsyncFd::new(fd)?;
+        select! {
+            _ = fd.readable() => {
+                // `fd` borrows `read_guard`. To complete the read action, explicitly drop
+                // `fd`.
+                drop(fd);
 
-        read_guard.read()?;
-        event_queue.dispatch_pending(&mut wallpaper)?;
+                read_guard.read()?;
+                event_queue.dispatch_pending(&mut wallpaper)?;
+            }
+            maybe_message = request_rx.recv() => {
+                match maybe_message {
+                    None => {
+                        error!("All request senders have been dropped.\
+                            It seems that the daemon server panicked!");
+                        break;
+                    }
+                    Some((task_handle, message, reply_tx)) => {
+                        if let ipc::Message::Kill = message {
+                            info!("Received a shutdown signal from client, stopping ...");
+                            break
+                        }
+
+                        if let Err(e) = process_message(task_handle, message, reply_tx).await {
+                            error!("Failed to process request from client: {e}");
+                        }
+                    }
+                }
+            }
+            maybe_signal = &mut shutdown_sig => {
+                match maybe_signal {
+                    Ok(_) => info!("Received a shutdown signal, stopping ..."),
+                    Err(e) => error!("Failed to hook shutdown signal, stopping ... : {e}"),
+                }
+
+                break
+            }
+        }
 
         if wallpaper.exited {
             break;
@@ -113,4 +162,70 @@ async fn main() -> Result<()> {
 
 fn rgb_u8_to_f64((r, g, b): (u8, u8, u8)) -> (f64, f64, f64) {
     (r as f64 / 255., g as f64 / 255., b as f64 / 255.)
+}
+
+async fn process_connection(
+    task_handle: TaskHandle,
+    mut socket: UnixStream,
+    request_tx: mpsc::Sender<(TaskHandle, ipc::Message, oneshot::Sender<ipc::Reply>)>,
+) -> Result<()> {
+    let message = ipc::Message::async_receive(&mut socket).await?;
+    let (reply_tx, reply_rx) = oneshot::channel();
+    request_tx.send((task_handle, message, reply_tx)).await?;
+
+    let reply_res = reply_rx.await;
+    let reply = match reply_res {
+        Ok(reply) => reply,
+        Err(e) => ipc::Reply::Error(format!("Failed to get reply from event loop: {e}")),
+    };
+    reply.async_send(&mut socket).await?;
+
+    Ok(())
+}
+
+async fn process_message(
+    task_handle: TaskHandle,
+    message: ipc::Message,
+    reply_tx: oneshot::Sender<ipc::Reply>,
+) -> Result<()> {
+    warn!("The daemon doesn't support processing messages from clients.");
+    debug!("Message received: {message:?}");
+
+    // TODO: impl message processing logic
+    reply_tx
+        .send(ipc::Reply::Error(
+            "The daemon doesn't support processing messages from clients yet.".to_string(),
+        ))
+        .map_err(|_| anyhow!("Cannot send reply back to connection-processing task"))?;
+
+    Ok(())
+}
+
+async fn wait_shutdown_sig() -> Result<oneshot::Receiver<()>> {
+    debug!("Trying to hook stoppeing signal ...");
+    let (sig_tx, sig_rx) = oneshot::channel();
+
+    let mut sigint = tokio::signal::unix::signal(SignalKind::interrupt())
+        .map_err(|e| anyhow!("Failed to hook SIGINT: {e}"))?;
+    let mut sigterm = tokio::signal::unix::signal(SignalKind::terminate())
+        .map_err(|e| anyhow!("Failed to hook SIGTERM: {e}"))?;
+    let mut sighup = tokio::signal::unix::signal(SignalKind::hangup())
+        .map_err(|e| anyhow!("Failed to hook SIGHUP: {e}"))?;
+    let mut sigquit = tokio::signal::unix::signal(SignalKind::quit())
+        .map_err(|e| anyhow!("Failed to hook SIGQUIT: {e}"))?;
+
+    tokio::spawn(async move {
+        select! {
+            _ = sigint.recv() => {},
+            _ = sigterm.recv() => {},
+            _ = sighup.recv() => {},
+            _ = sigquit.recv() => {},
+        };
+
+        if let Err(_) = sig_tx.send(()) {
+            error!("Failed to send stopping message from signal hooks!");
+        }
+    });
+
+    Ok(sig_rx)
 }

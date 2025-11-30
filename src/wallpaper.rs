@@ -245,6 +245,7 @@ impl WallpaperBuilder {
             &shaders::wallpaper::targets(config.format),
         );
 
+        debug!("Wallpaper built!");
         Ok(Wallpaper {
             layer_surface,
             exited: false,
