@@ -412,6 +412,91 @@ impl Wallpaper {
 
         self.draw(conn, qh);
     }
+
+    #[tracing::instrument(skip(self, qh))]
+    pub async fn change_image_and_request_frame(
+        &mut self,
+        qh: &QueueHandle<Self>,
+        image_path: &str,
+        resize_option: server_cli::ResizeOption,
+    ) {
+        // Load the new image.
+        debug!("Trying to load the new image: {image_path}");
+        let img = match image::open(image_path) {
+            Ok(img) => img,
+            Err(e) => {
+                error!("Failed to load the new image in `{image_path}`: {e}");
+                return;
+            }
+        };
+        let img = img.to_rgba8();
+        let texture_width = img.width();
+        let texture_height = img.height();
+        let image_texture = {
+            debug!("Trying to create and write to the texture ...");
+            let size = texture::texture_size(texture_width, texture_height);
+            let desc = texture::image_srgb_unorm_desc(None, size, 1);
+            let texture = self.device.create_texture(&desc);
+            self.queue.write_texture(
+                wgpu::TexelCopyTextureInfo {
+                    texture: &texture,
+                    mip_level: 0,
+                    origin: wgpu::Origin3d::ZERO,
+                    aspect: wgpu::TextureAspect::All,
+                },
+                &img,
+                wgpu::TexelCopyBufferLayout {
+                    offset: 0,
+                    bytes_per_row: Some(4 * texture_width),
+                    rows_per_image: Some(texture_height),
+                },
+                size,
+            );
+
+            texture
+        };
+
+        // Set the new texture;
+        debug!("Set new texture for wallpaper ...");
+        self.image_texture = image_texture;
+        self.texture_width = texture_width;
+        self.texture_height = texture_height;
+
+        // Bind the new texture within the bind group.
+        debug!("Trying to bind the new texture and the sampler together ...");
+        let image_texture_view = self.image_texture.create_view(&texture::image_view_desc(None));
+        let layout =
+            self.device.create_bind_group_layout(&bind_group::texture_and_sampler::layout_desc(None));
+        let bind_group = bind_group::texture_and_sampler::bind_group(
+            &self.device,
+            None,
+            &layout,
+            &image_texture_view,
+            &self.sampler,
+        );
+        self.bind_group = bind_group;
+
+        // Re-filling the vertex buffer.
+        //
+        // If we have the new resize option same as the old resize option, we can just skip the
+        // building of the vertex buffer.
+        if resize_option != self.resize_option {
+            debug!("Re-filling the vertex buffer with the new resize option ...");
+            let vertex_buffer = vertex::create_vertex_buffer_with_resize_option(
+                (self.config.width, self.config.height),
+                (self.texture_width, self.texture_height),
+                self.resize_option,
+            );
+            self.queue
+                .write_buffer(&self.vertex_buffer, 0, bytemuck::cast_slice(&vertex_buffer));
+        }
+
+        // Request a new frame to draw the new wallpaper.
+        self.damaged = true;
+        let wl_surface = self.layer_surface.wl_surface().clone();
+        self.layer_surface.wl_surface().frame(qh, wl_surface);
+        self.layer_surface.commit();
+    }
 }
 
 impl ProvidesRegistryState for Wallpaper {

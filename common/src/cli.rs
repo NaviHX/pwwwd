@@ -63,7 +63,9 @@ pub mod server {
         pub resize: Option<ResizeOption>,
     }
 
-    #[derive(Copy, Clone, clap::ValueEnum, Debug, serde::Serialize, serde::Deserialize)]
+    #[derive(
+        Copy, Clone, clap::ValueEnum, Debug, serde::Serialize, serde::Deserialize, PartialEq, Eq,
+    )]
     pub enum ResizeOption {
         No,
         Crop,
