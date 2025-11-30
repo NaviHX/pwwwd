@@ -15,7 +15,10 @@ use tokio::{
 use tracing::{debug, error, info, warn};
 use wayland_client::{Connection, globals::registry_queue_init};
 
-use crate::server::{Server, TaskHandle, TaskHub};
+use crate::{
+    server::{Server, TaskHandle, TaskHub},
+    wallpaper::Wallpaper,
+};
 
 const REQUSET_BUFFER_SIZE: usize = 4;
 
@@ -134,7 +137,7 @@ async fn main() -> Result<()> {
                             break
                         }
 
-                        if let Err(e) = process_message(task_handle, message, reply_tx).await {
+                        if let Err(e) = process_message(task_handle, message, reply_tx, &mut wallpaper).await {
                             error!("Failed to process request from client: {e}");
                         }
                     }
@@ -191,6 +194,7 @@ async fn process_message(
     task_handle: TaskHandle,
     message: ipc::Message,
     reply_tx: oneshot::Sender<ipc::Reply>,
+    wallpaper: &mut Wallpaper,
 ) -> Result<()> {
     warn!("The daemon doesn't support processing messages from clients.");
     debug!("Message received: {message:?}");
