@@ -127,6 +127,10 @@ async fn main() -> Result<()> {
                     Some((task_handle, message, reply_tx)) => {
                         if let ipc::Message::Kill = message {
                             info!("Received a shutdown signal from client, stopping ...");
+                            if let Err(_) = reply_tx.send(ipc::Reply::Ok) {
+                                error!("Failed to send shutdown reply to client!");
+                            }
+
                             break
                         }
 
