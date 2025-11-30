@@ -18,12 +18,14 @@ use tracing::{error, info, warn};
 
 pub struct Server {
     uds_listener: UnixListener,
+    uds_path: PathBuf,
 
     stop_signal_rx: oneshot::Receiver<()>,
 }
 
 impl Server {
     pub fn new(uds_addr: impl AsRef<Path>) -> Result<(Self, ServerHandle), io::Error> {
+        let uds_path = uds_addr.as_ref().to_owned();
         let uds_listener = UnixListener::bind(uds_addr)?;
         let (stop_signal_tx, stop_signal_rx) = oneshot::channel();
         let server_handle = ServerHandle::new(stop_signal_tx);
@@ -31,6 +33,7 @@ impl Server {
         Ok((
             Self {
                 uds_listener,
+                uds_path,
                 stop_signal_rx,
             },
             server_handle,
@@ -66,6 +69,20 @@ impl Server {
                 }
             }
         })
+    }
+
+    fn clean(&mut self) {
+        info!("Do cleaning for the daemon server ...");
+
+        if let Err(e) = std::fs::remove_file(&self.uds_path) {
+            error!("Cannot remove the UDS path! : {e}");
+        }
+    }
+}
+
+impl Drop for Server {
+    fn drop(&mut self) {
+        self.clean();
     }
 }
 
