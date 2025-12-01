@@ -246,7 +246,7 @@ impl WallpaperBuilder {
             Some("fs_main"),
 
             // &shaders::wallpaper::targets(config.format),
-            &shaders::wallpaper::targets(OffScreen::format()),
+            &shaders::wallpaper::target(OffScreen::format()),
         );
 
         debug!("Creating off-screen buffer ...");

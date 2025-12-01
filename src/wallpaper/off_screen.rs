@@ -113,7 +113,7 @@ impl OffScreen {
             Some("vs_main"),
             shaders::wallpaper::BUFFERS,
             Some("fs_main"),
-            &shaders::wallpaper::targets(config.format),
+            &shaders::wallpaper::target(config.format),
         );
 
         debug!("Off-screen buffer built");

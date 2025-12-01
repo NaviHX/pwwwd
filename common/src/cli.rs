@@ -132,4 +132,6 @@ pub mod client {
     }
 
     pub const DEFAULT_TRANSITION_KIND: TransitionKind = TransitionKind::No;
+    pub const DEFAULT_TRANSITION_DURATION: f64 = 3.0;
+    pub const DEFAULT_TRANSITION_FPS: f64 = 30.0;
 }
