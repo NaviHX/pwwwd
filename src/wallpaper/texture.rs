@@ -23,6 +23,25 @@ pub fn image_srgb_unorm_desc(
     }
 }
 
+pub fn offscreen_srgb_unorm_desc(
+    label: Option<&str>,
+    size: wgpu::Extent3d,
+    sample_count: u32,
+) -> wgpu::TextureDescriptor<'_> {
+    wgpu::TextureDescriptor {
+        label,
+        size,
+        mip_level_count: 1,
+        sample_count,
+        dimension: wgpu::TextureDimension::D2,
+        format: wgpu::TextureFormat::Rgba8UnormSrgb,
+        usage: wgpu::TextureUsages::TEXTURE_BINDING
+            | wgpu::TextureUsages::COPY_DST
+            | wgpu::TextureUsages::RENDER_ATTACHMENT,
+        view_formats: &[],
+    }
+}
+
 pub fn image_view_desc(label: Option<&str>) -> wgpu::TextureViewDescriptor<'_> {
     wgpu::TextureViewDescriptor {
         label,
