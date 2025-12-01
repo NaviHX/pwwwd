@@ -534,14 +534,97 @@ impl Wallpaper {
         Ok(())
     }
 
-    #[tracing::instrument(skip(self, transition))]
+    /// Start a transition from the old wallpaper to the selected image. This function will change
+    /// both the stored wallpaper and change the resize option. If we encounter error after
+    /// changing the image, the following transition will be canceled and the final frame will be
+    /// drawn immediately.
+    #[tracing::instrument(skip(self))]
     pub async fn start_transition(
         &mut self,
+        qh: &QueueHandle<Self>,
+        img_path: &str,
+        resize_option: server_cli::ResizeOption,
         duration: f64,
         fps: f64,
-        transition: Box<dyn TransitionPass>,
+        transition_kind: TransitionKind,
+        transition_options: TransitionOptions,
     ) {
-        todo!()
+        debug!("Loading the new image: {img_path}");
+        if let Err(e) = self
+            .change_image_and_request_frame(qh, img_path, resize_option)
+            .await
+        {
+            error!("Failed to load the new image to create transition! : {e}");
+            return;
+        }
+
+        // Before we do any further rendering, grab the current buffer out.
+        let old_texture_view = self
+            .off_screen_buffer
+            .current_frame()
+            .create_view(&texture::image_view_desc(Some("Old texture view")));
+
+        // The transition shader need the final texture view, so we need to render the new image to
+        // the off-screen buffer. Then we can get the texture view from the off-screen buffer.
+        debug!("Rendering the new image to the off-screen buffer ...");
+        let mut encoder = self
+            .device
+            .create_command_encoder(&wgpu::CommandEncoderDescriptor::default());
+        self.off_screen_buffer.update_pass(
+            &self.device,
+            &mut encoder,
+            (self.config.width, self.config.height),
+            self.fill_color,
+            &self.render_pipeline,
+            &self.bind_group,
+            &self.vertex_buffer,
+            &self.index_buffer,
+            NUM_INDEX,
+        );
+        self.queue.submit(Some(encoder.finish()));
+        let new_texture_view = self
+            .off_screen_buffer
+            .current_frame()
+            .create_view(&texture::image_view_desc(Some("New texture view")));
+
+        let now = std::time::Instant::now();
+        debug!("Start time of transition: {now:?}");
+
+        let transition = match shaders::transition::create_transition(
+            &self.device,
+            self.config.format,
+            old_texture_view,
+            new_texture_view,
+            transition_kind,
+            transition_options,
+        ) {
+            Some(t) => t,
+            // Because we already request a new frame, the final frame will be drawn in the next
+            // frame.
+            None => return,
+        };
+
+        let transition = TransitionState::new(now, duration, fps, transition);
+
+        if let Some(_) = self.transition.replace(transition) {
+            // Anyway, if `TaskHub` functions correctly, there is always only one transition
+            // animating.
+            error!(
+                "Found unfinished transition! The old one will be finished immediately\
+                and start a new one!"
+            );
+        }
+    }
+
+    #[tracing::instrument(skip(self, transition_state, encoder, target_view))]
+    fn draw_transition(
+        &mut self,
+        transition_state: &mut TransitionState,
+        encoder: &mut wgpu::CommandEncoder,
+        target_view: &wgpu::TextureView,
+    ) -> Result<(), TransitionRenderError> {
+        let now = std::time::Instant::now();
+        transition_state.render_pass(&self.device, encoder, now, target_view, self.fill_color)
     }
 }
 

@@ -74,6 +74,8 @@ pub mod server {
     }
 
     pub const DEFAULT_RESIZE: ResizeOption = ResizeOption::Crop;
+
+    pub use super::client::{DEFAULT_TRANSITION_DURATION, DEFAULT_TRANSITION_FPS};
 }
 
 pub mod client {

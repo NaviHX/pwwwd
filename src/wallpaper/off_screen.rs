@@ -55,7 +55,11 @@ impl OffScreen {
 
     /// Create a new empty off-screen rendering buffer.
     #[tracing::instrument(skip(device))]
-    pub fn create(device: &wgpu::Device, size: (u32, u32), config: &wgpu::SurfaceConfiguration) -> Self {
+    pub fn create(
+        device: &wgpu::Device,
+        size: (u32, u32),
+        target_format: wgpu::TextureFormat,
+    ) -> Self {
         debug!("Creating off-screen texture ...");
         let texture = Self::create_texture(device, size);
         let texture_view = texture.create_view(&texture::surface_view_desc(None));
@@ -113,7 +117,7 @@ impl OffScreen {
             Some("vs_main"),
             shaders::wallpaper::BUFFERS,
             Some("fs_main"),
-            &shaders::wallpaper::target(config.format),
+            &shaders::wallpaper::target(target_format),
         );
 
         debug!("Off-screen buffer built");
@@ -225,6 +229,10 @@ impl OffScreen {
 
     pub fn current_frame(&self) -> &wgpu::Texture {
         &self.frame
+    }
+
+    pub fn into_frame(self) -> wgpu::Texture {
+        self.frame
     }
 
     pub fn format() -> wgpu::TextureFormat {

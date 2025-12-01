@@ -1,4 +1,4 @@
-use crate::wallpaper::shaders::transition::TransitionPass;
+use crate::wallpaper::{shaders::transition::TransitionPass};
 use std::time::Instant;
 use thiserror::Error;
 use tracing::debug;
