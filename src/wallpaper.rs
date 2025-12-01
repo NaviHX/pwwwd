@@ -6,6 +6,7 @@ mod sampler;
 mod shaders;
 mod texture;
 mod vertex;
+mod off_screen;
 
 use anyhow::{Result, anyhow};
 use common::cli::server as server_cli;
