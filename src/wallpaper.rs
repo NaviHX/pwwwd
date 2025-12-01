@@ -1,16 +1,17 @@
 mod bind_group;
 mod config;
 mod misc;
+mod off_screen;
 mod render_pipeline;
 mod sampler;
 mod shaders;
 mod texture;
 mod vertex;
-mod off_screen;
 
 use anyhow::{Result, anyhow};
 use common::cli::server as server_cli;
 use config::Configurable;
+use off_screen::OffScreen;
 use smithay_client_toolkit::{
     compositor::{CompositorHandler, CompositorState},
     delegate_compositor, delegate_layer, delegate_output, delegate_registry, delegate_shm,
@@ -237,14 +238,21 @@ impl WallpaperBuilder {
         let render_pipeline = render_pipeline::create_pipeline(
             &device,
             None,
-            None,
+            Some("Render pipeline"),
             &[&layout],
             &shader,
             Some("vs_main"),
             shaders::wallpaper::BUFFERS,
             Some("fs_main"),
-            &shaders::wallpaper::targets(config.format),
+
+            // &shaders::wallpaper::targets(config.format),
+            &shaders::wallpaper::targets(OffScreen::format()),
         );
+
+        debug!("Creating off-screen buffer ...");
+        // HACK: As we don't know the surface size for now, use `1920x1080` to create the
+        // off-screen buffer.
+        let off_screen_buffer = off_screen::OffScreen::create(&device, (1920, 1080), &config);
 
         debug!("Wallpaper built!");
         Ok(Wallpaper {
@@ -252,6 +260,8 @@ impl WallpaperBuilder {
             exited: false,
             first_configured: false,
             damaged: true,
+
+            off_screen_buffer,
 
             registry_state,
             output_state,
@@ -296,6 +306,9 @@ pub struct Wallpaper {
     /// 2. TODO: A new image path is received by the daemon from the client.
     /// 3. TODO: The daemon is doing transition work between two images.
     damaged: bool,
+
+    /// Off-screen buffer
+    off_screen_buffer: OffScreen,
 
     // Wayland event handlers,
     registry_state: RegistryState,
@@ -362,28 +375,42 @@ impl Wallpaper {
             .device
             .create_command_encoder(&wgpu::CommandEncoderDescriptor::default());
         {
-            let (r, g, b) = self.fill_color;
-            let mut render_pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
-                label: Some("Wallpaper render_pass"),
-                color_attachments: &[Some(wgpu::RenderPassColorAttachment {
-                    view: &view,
-                    depth_slice: None,
-                    resolve_target: None,
-                    ops: wgpu::Operations {
-                        load: wgpu::LoadOp::Clear(wgpu::Color { r, g, b, a: 1.0 }),
-                        store: wgpu::StoreOp::Store,
-                    },
-                })],
-                depth_stencil_attachment: None,
-                timestamp_writes: None,
-                occlusion_query_set: None,
-            });
+            // let (r, g, b) = self.fill_color;
+            // let mut render_pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
+            //     label: Some("Wallpaper render_pass"),
+            //     color_attachments: &[Some(wgpu::RenderPassColorAttachment {
+            //         view: &view,
+            //         depth_slice: None,
+            //         resolve_target: None,
+            //         ops: wgpu::Operations {
+            //             load: wgpu::LoadOp::Clear(wgpu::Color { r, g, b, a: 1.0 }),
+            //             store: wgpu::StoreOp::Store,
+            //         },
+            //     })],
+            //     depth_stencil_attachment: None,
+            //     timestamp_writes: None,
+            //     occlusion_query_set: None,
+            // });
+            //
+            // render_pass.set_pipeline(&self.render_pipeline);
+            // render_pass.set_bind_group(0, &self.bind_group, &[]);
+            // render_pass.set_vertex_buffer(0, self.vertex_buffer.slice(..));
+            // render_pass.set_index_buffer(self.index_buffer.slice(..), wgpu::IndexFormat::Uint16);
+            // render_pass.draw_indexed(0..vertex::NUM_INDEX, 0, 0..1);
 
-            render_pass.set_pipeline(&self.render_pipeline);
-            render_pass.set_bind_group(0, &self.bind_group, &[]);
-            render_pass.set_vertex_buffer(0, self.vertex_buffer.slice(..));
-            render_pass.set_index_buffer(self.index_buffer.slice(..), wgpu::IndexFormat::Uint16);
-            render_pass.draw_indexed(0..vertex::NUM_INDEX, 0, 0..1);
+            self.off_screen_buffer.update_pass(
+                &self.device,
+                &mut encoder,
+                (self.config.width, self.config.height),
+                self.fill_color,
+                &self.render_pipeline,
+                &self.bind_group,
+                &self.vertex_buffer,
+                &self.index_buffer,
+                vertex::NUM_INDEX,
+            );
+            self.off_screen_buffer
+                .render_pass(&mut encoder, &view, self.fill_color);
         }
 
         self.queue.submit(std::iter::once(encoder.finish()));
@@ -466,9 +493,12 @@ impl Wallpaper {
 
         // Bind the new texture within the bind group.
         debug!("Trying to bind the new texture and the sampler together ...");
-        let image_texture_view = self.image_texture.create_view(&texture::image_view_desc(None));
-        let layout =
-            self.device.create_bind_group_layout(&bind_group::texture_and_sampler::layout_desc(None));
+        let image_texture_view = self
+            .image_texture
+            .create_view(&texture::image_view_desc(None));
+        let layout = self
+            .device
+            .create_bind_group_layout(&bind_group::texture_and_sampler::layout_desc(None));
         let bind_group = bind_group::texture_and_sampler::bind_group(
             &self.device,
             None,
