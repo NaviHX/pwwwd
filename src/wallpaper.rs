@@ -6,6 +6,7 @@ mod render_pipeline;
 mod sampler;
 mod shaders;
 mod texture;
+mod transition_state;
 mod vertex;
 
 use anyhow::{Result, anyhow};
@@ -29,6 +30,8 @@ use smithay_client_toolkit::{
 use tracing::{debug, error, warn};
 use wayland_client::{Connection, QueueHandle, globals::GlobalList};
 use wgpu::{self, util::DeviceExt};
+
+use crate::wallpaper::shaders::transition::TransitionPass;
 
 delegate_registry!(Wallpaper);
 delegate_output!(Wallpaper);
@@ -244,7 +247,6 @@ impl WallpaperBuilder {
             Some("vs_main"),
             shaders::wallpaper::BUFFERS,
             Some("fs_main"),
-
             // &shaders::wallpaper::targets(config.format),
             &shaders::wallpaper::target(OffScreen::format()),
         );
@@ -530,6 +532,16 @@ impl Wallpaper {
         self.layer_surface.commit();
 
         Ok(())
+    }
+
+    #[tracing::instrument(skip(self, transition))]
+    pub async fn start_transition(
+        &mut self,
+        duration: f64,
+        fps: f64,
+        transition: Box<dyn TransitionPass>,
+    ) {
+        todo!()
     }
 }
 
