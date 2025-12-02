@@ -69,16 +69,24 @@ async fn main() -> Result<()> {
 
         async move {
             match task_hub.exclusively_exec(
-                |task_handle, ()| async {
+                |task_handle, socket| async {
                     match process_connection(task_handle, socket, request_tx).await {
                         Ok(_) => debug!("Completed the task"),
                         Err(e) => error!("Failed to complete the task: {e}"),
                     }
                 },
-                (),
+                socket,
             ) {
                 Ok(fut) => fut.await,
-                Err(e) => error!("{e}"),
+                Err((e, mut socket)) => {
+                    error!("{e}");
+                    if let Err(e) = ipc::Reply::Error(format!("{e}"))
+                        .async_send(&mut socket)
+                        .await
+                    {
+                        error!("Failed to send reply back!: {e}");
+                    }
+                }
             }
         }
     });

@@ -152,14 +152,15 @@ impl TaskHub {
         &self,
         f: FN,
         arg: ARG,
-    ) -> Result<impl Future<Output = T> + Send + 'static, TaskHubError>
+    ) -> Result<impl Future<Output = T> + Send + 'static, (TaskHubError, ARG)>
     where
         FN: FnOnce(TaskHandle, ARG) -> F + Send + 'static,
         F: Future<Output = T> + Send + 'static,
     {
-        let handle = self.create_handle()?;
-        let fut = f(handle, arg);
-        Ok(fut)
+        match self.create_handle() {
+            Ok(handle) => Ok(f(handle, arg)),
+            Err(e) => Err((e, arg)),
+        }
     }
 }
 
