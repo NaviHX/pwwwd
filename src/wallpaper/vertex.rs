@@ -55,12 +55,24 @@ pub const STRETCH_VERTICES: &[Vertex] = &[
 macro_rules! vertices {
     ($px:expr, $nx:expr, $py:expr, $ny:expr, $wf:expr, $hf:expr) => {
         ::std::vec::Vec::from([
-            Vertex { position: [$px, $py, 0.0], texture_coords: [$wf, 0.0] },
-            Vertex { position: [$nx, $py, 0.0], texture_coords: [0.0, 0.0] },
-            Vertex { position: [$nx, $ny, 0.0], texture_coords: [0.0, $hf] },
-            Vertex { position: [$px, $ny, 0.0], texture_coords: [$wf, $hf] },
+            Vertex {
+                position: [$px, $py, 0.0],
+                texture_coords: [$wf, 0.0],
+            },
+            Vertex {
+                position: [$nx, $py, 0.0],
+                texture_coords: [0.0, 0.0],
+            },
+            Vertex {
+                position: [$nx, $ny, 0.0],
+                texture_coords: [0.0, $hf],
+            },
+            Vertex {
+                position: [$px, $ny, 0.0],
+                texture_coords: [$wf, $hf],
+            },
         ])
-    }
+    };
 }
 
 pub fn create_vertex_buffer_with_resize_option(

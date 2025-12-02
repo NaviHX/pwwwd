@@ -2,12 +2,14 @@
 
 Phillips's wgpu-based Wayland wallpaper daemon.
 
-## Roadmap
+## Features
 
 - :heavy_check_mark: Render wallpapers to desktop
 - :heavy_check_mark: Basic resize options: `no`, `crop`, `fit`, `stretch`
-- :x: Daemon control for wallpaper switching (via command line)
-- :x: Wallpaper transition animations
+- :heavy_check_mark: Daemon control for wallpaper switching (via command line)
+- :construction: Wallpaper transition animations
+    - :heavy_check_mark: Xfd
+    - :x: wave ...
 - :x: Restore last used wallpaper on startup
 - :x: Multiple monitor support with individual wallpapers
 - :x: Video and animated image support

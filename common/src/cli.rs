@@ -131,6 +131,9 @@ pub mod client {
 
         #[arg(long, name = "transition-fps")]
         pub fps: Option<f64>,
+
+        #[arg(long, name = "allow-interrupt")]
+        pub interrupt: bool,
     }
 
     pub const DEFAULT_TRANSITION_KIND: TransitionKind = TransitionKind::No;

@@ -231,6 +231,7 @@ async fn process_message(
                         fps,
                         transition_kind,
                         transition_options,
+                        task_handle,
                     )
                     .await;
 

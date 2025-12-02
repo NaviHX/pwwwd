@@ -1,4 +1,7 @@
-use crate::wallpaper::{off_screen::OffScreen, shaders::transition::TransitionPass, texture};
+use crate::{
+    server::TaskHandle,
+    wallpaper::{off_screen::OffScreen, shaders::transition::TransitionPass, texture},
+};
 use std::time::Instant;
 use thiserror::Error;
 use tracing::debug;
@@ -20,6 +23,7 @@ pub struct TransitionState {
     pub transition: Box<dyn TransitionPass>,
     off_screen_buffer: OffScreen,
     first_rendered: bool,
+    _task_handle: Option<TaskHandle>,
 }
 
 impl TransitionState {
@@ -31,6 +35,7 @@ impl TransitionState {
         transition: Box<dyn TransitionPass>,
         size: (u32, u32),
         target_format: wgpu::TextureFormat,
+        task_handle: Option<TaskHandle>,
     ) -> Self {
         let off_screen_buffer = OffScreen::create(device, size, target_format);
         Self {
@@ -41,6 +46,7 @@ impl TransitionState {
             transition,
             off_screen_buffer,
             first_rendered: false,
+            _task_handle: task_handle,
         }
     }
 

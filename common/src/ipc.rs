@@ -5,9 +5,13 @@ use crate::cli::{
     server::DEFAULT_RESIZE,
 };
 use anyhow::{Result, anyhow};
+use rmp_serde::{Deserializer, Serializer};
 use serde::{Deserialize, Serialize};
-use std::{fmt::Display, io::{Read, Write}, path::PathBuf};
-use rmp_serde::{Serializer, Deserializer};
+use std::{
+    fmt::Display,
+    io::{Read, Write},
+    path::PathBuf,
+};
 
 /// The daemon's reply type. Following a 4-byte `length` big-endian message in socket stream.
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -86,7 +90,10 @@ impl Message {
     }
 
     #[cfg(feature = "async")]
-    pub async fn async_send<T: tokio::io::AsyncWriteExt + Unpin>(&self, socket: &mut T) -> Result<()> {
+    pub async fn async_send<T: tokio::io::AsyncWriteExt + Unpin>(
+        &self,
+        socket: &mut T,
+    ) -> Result<()> {
         let mut buf = vec![];
         self.serialize(&mut Serializer::new(&mut buf))?;
 
@@ -115,7 +122,8 @@ impl Message {
 pub fn default_uds_path() -> Result<PathBuf> {
     let dirs =
         directories::BaseDirs::new().ok_or(anyhow!("Cannot create `BaseDirs` to get uds path"))?;
-    let mut dir = dirs.runtime_dir()
+    let mut dir = dirs
+        .runtime_dir()
         .map(|p| p.to_owned())
         .ok_or(anyhow!("Didn't find XDG_RUNTIME_DIR"))?;
     dir.push("pwwwd.sock");
@@ -155,7 +163,10 @@ impl Reply {
     }
 
     #[cfg(feature = "async")]
-    pub async fn async_send<T: tokio::io::AsyncWriteExt + Unpin>(&self, socket: &mut T) -> Result<()> {
+    pub async fn async_send<T: tokio::io::AsyncWriteExt + Unpin>(
+        &self,
+        socket: &mut T,
+    ) -> Result<()> {
         let mut buf = vec![];
         self.serialize(&mut Serializer::new(&mut buf))?;
 

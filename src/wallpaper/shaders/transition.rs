@@ -33,7 +33,12 @@ pub fn create_transition(
 
         TransitionKind::Xfd => {
             debug!("Xfd created");
-            Some(Box::new(Xfd::new(device, old_texture_view, new_texture_view, target_format)))
+            Some(Box::new(Xfd::new(
+                device,
+                old_texture_view,
+                new_texture_view,
+                target_format,
+            )))
         }
     }
 }

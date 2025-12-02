@@ -99,7 +99,10 @@ impl TaskHandle {
     }
 
     fn finish(&mut self) {
-        match self.busy_flag.compare_exchange(true, false, Ordering::AcqRel, Ordering::Acquire) {
+        match self
+            .busy_flag
+            .compare_exchange(true, false, Ordering::AcqRel, Ordering::Acquire)
+        {
             Ok(_) => {}
             Err(_) => {
                 #[cfg(not(feature = "panic-double-toggle-busy"))]
@@ -134,9 +137,7 @@ impl TaskHub {
         }
     }
 
-    fn create_handle(
-        &self,
-    ) -> Result<TaskHandle, TaskHubError> {
+    fn create_handle(&self) -> Result<TaskHandle, TaskHubError> {
         if let Err(_) =
             self.busy_flag
                 .compare_exchange(false, true, Ordering::AcqRel, Ordering::Acquire)

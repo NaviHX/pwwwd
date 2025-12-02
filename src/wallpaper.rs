@@ -37,10 +37,13 @@ use tracing::{debug, error, warn};
 use wayland_client::{Connection, QueueHandle, globals::GlobalList};
 use wgpu::{self, util::DeviceExt};
 
-use crate::wallpaper::{
-    shaders::transition::TransitionPass,
-    transition_state::{TransitionRenderError, TransitionState},
-    vertex::NUM_INDEX,
+use crate::{
+    server::TaskHandle,
+    wallpaper::{
+        shaders::transition::TransitionPass,
+        transition_state::{TransitionRenderError, TransitionState},
+        vertex::NUM_INDEX,
+    },
 };
 
 delegate_registry!(Wallpaper);
@@ -572,7 +575,7 @@ impl Wallpaper {
     /// both the stored wallpaper and change the resize option. If we encounter error after
     /// changing the image, the following transition will be canceled and the final frame will be
     /// drawn immediately.
-    #[tracing::instrument(skip(self))]
+    #[tracing::instrument(skip(self, task_handle))]
     pub async fn start_transition(
         &mut self,
         qh: &QueueHandle<Self>,
@@ -582,6 +585,7 @@ impl Wallpaper {
         fps: f64,
         transition_kind: TransitionKind,
         transition_options: TransitionOptions,
+        task_handle: TaskHandle,
     ) {
         // Before we do any further rendering, grab the current buffer out for later use.
         debug!("Saving the old wallpaper ...");
@@ -670,6 +674,11 @@ impl Wallpaper {
             transition,
             (self.config.width, self.config.height),
             self.config.format,
+            if transition_options.interrupt {
+                None
+            } else {
+                Some(task_handle)
+            },
         );
 
         if let Some(_) = self.transition.replace(transition) {
