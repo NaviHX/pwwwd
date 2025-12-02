@@ -511,20 +511,15 @@ impl Wallpaper {
         self.bind_group = bind_group;
 
         // Re-filling the vertex buffer.
-        //
-        // If we have the new resize option same as the old resize option, we can just skip the
-        // building of the vertex buffer.
-        if resize_option != self.resize_option {
-            self.resize_option = resize_option;
-            debug!("Re-filling the vertex buffer with the new resize option ...");
-            let vertex_buffer = vertex::create_vertex_buffer_with_resize_option(
-                (self.config.width, self.config.height),
-                (self.texture_width, self.texture_height),
-                self.resize_option,
-            );
-            self.queue
-                .write_buffer(&self.vertex_buffer, 0, bytemuck::cast_slice(&vertex_buffer));
-        }
+        self.resize_option = resize_option;
+        debug!("Re-filling the vertex buffer with the new resize option ...");
+        let vertex_buffer = vertex::create_vertex_buffer_with_resize_option(
+            (self.config.width, self.config.height),
+            (self.texture_width, self.texture_height),
+            self.resize_option,
+        );
+        self.queue
+            .write_buffer(&self.vertex_buffer, 0, bytemuck::cast_slice(&vertex_buffer));
 
         // Request a new frame to draw the new wallpaper.
         self.damaged = true;
