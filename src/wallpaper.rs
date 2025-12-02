@@ -9,9 +9,15 @@ mod texture;
 mod transition_state;
 mod vertex;
 
+use std::{io::BufRead, time::Duration};
+
 use anyhow::{Result, anyhow};
-use common::cli::server as server_cli;
+use common::cli::{
+    client::{TransitionKind, TransitionOptions},
+    server as server_cli,
+};
 use config::Configurable;
+use image::DynamicImage;
 use off_screen::OffScreen;
 use smithay_client_toolkit::{
     compositor::{CompositorHandler, CompositorState},
@@ -31,7 +37,11 @@ use tracing::{debug, error, warn};
 use wayland_client::{Connection, QueueHandle, globals::GlobalList};
 use wgpu::{self, util::DeviceExt};
 
-use crate::wallpaper::shaders::transition::TransitionPass;
+use crate::wallpaper::{
+    shaders::transition::TransitionPass,
+    transition_state::{TransitionRenderError, TransitionState},
+    vertex::NUM_INDEX,
+};
 
 delegate_registry!(Wallpaper);
 delegate_output!(Wallpaper);
@@ -254,7 +264,7 @@ impl WallpaperBuilder {
         debug!("Creating off-screen buffer ...");
         // HACK: As we don't know the surface size for now, use `1920x1080` to create the
         // off-screen buffer.
-        let off_screen_buffer = off_screen::OffScreen::create(&device, (1920, 1080), &config);
+        let off_screen_buffer = off_screen::OffScreen::create(&device, (1920, 1080), config.format);
 
         debug!("Wallpaper built!");
         Ok(Wallpaper {
@@ -286,6 +296,8 @@ impl WallpaperBuilder {
             sampler,
             bind_group,
             render_pipeline,
+
+            transition: None,
         })
     }
 }
@@ -341,11 +353,14 @@ pub struct Wallpaper {
     sampler: wgpu::Sampler,
     bind_group: wgpu::BindGroup,
     render_pipeline: wgpu::RenderPipeline,
+
+    // Transition state manager
+    transition: Option<TransitionState>,
 }
 
 impl Wallpaper {
-    #[tracing::instrument(skip(self, _conn, _qh))]
-    pub fn draw(&mut self, _conn: &Connection, _qh: &QueueHandle<Self>) {
+    #[tracing::instrument(skip(self, _conn, qh))]
+    pub fn draw(&mut self, _conn: &Connection, qh: &QueueHandle<Self>) {
         if !self.first_configured {
             warn!("The surface hasn't be configured yet. Stop drawing ...");
             return;
@@ -356,11 +371,6 @@ impl Wallpaper {
             return;
         }
         self.damaged = false;
-
-        debug!("Damaging the whole surface ...");
-        let width = self.config.width as i32;
-        let height = self.config.height as i32;
-        self.layer_surface.wl_surface().damage(0, 0, width, height);
 
         let output = match self.wgpu_surface.get_current_texture() {
             Ok(output) => output,
@@ -373,40 +383,68 @@ impl Wallpaper {
             .texture
             .create_view(&texture::surface_view_desc(Some("Surface texture view")));
 
+        if let Some(mut transition_state) = self.transition.take() {
+            // If we have some animating transition, hijack the normal rendering progress.
+            let mut encoder = self
+                .device
+                .create_command_encoder(&wgpu::CommandEncoderDescriptor::default());
+
+            let now = std::time::Instant::now();
+
+            let finished = match transition_state.render_pass(
+                &self.device,
+                &mut encoder,
+                now,
+                &view,
+                self.fill_color,
+            ) {
+                Ok(_) => false,
+                Err(e) => match e {
+                    TransitionRenderError::SameFrame => false,
+                    TransitionRenderError::Finished => true,
+                },
+            };
+
+            if !finished {
+                // Continue the transition in the next frame.
+                self.transition = Some(transition_state);
+            } else {
+                // Or the next frame will just show the final image.
+                self.off_screen_buffer
+                    .render_pass(&mut encoder, &view, self.fill_color);
+            }
+
+            self.damaged = true;
+            let surface = self.layer_surface.wl_surface().clone();
+            self.layer_surface.wl_surface().frame(&qh, surface);
+
+            debug!("Damaging the whole surface ...");
+            let width = self.config.width as i32;
+            let height = self.config.height as i32;
+            self.layer_surface.wl_surface().damage(0, 0, width, height);
+            self.queue.submit(std::iter::once(encoder.finish()));
+
+            debug!("Submitted a transition frame!");
+            output.present();
+            return;
+        }
+
+        debug!("Normal rendering. Damaging the whole surface ...");
+        let width = self.config.width as i32;
+        let height = self.config.height as i32;
+        self.layer_surface.wl_surface().damage(0, 0, width, height);
+
         let mut encoder = self
             .device
             .create_command_encoder(&wgpu::CommandEncoderDescriptor::default());
         {
-            // let (r, g, b) = self.fill_color;
-            // let mut render_pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
-            //     label: Some("Wallpaper render_pass"),
-            //     color_attachments: &[Some(wgpu::RenderPassColorAttachment {
-            //         view: &view,
-            //         depth_slice: None,
-            //         resolve_target: None,
-            //         ops: wgpu::Operations {
-            //             load: wgpu::LoadOp::Clear(wgpu::Color { r, g, b, a: 1.0 }),
-            //             store: wgpu::StoreOp::Store,
-            //         },
-            //     })],
-            //     depth_stencil_attachment: None,
-            //     timestamp_writes: None,
-            //     occlusion_query_set: None,
-            // });
-            //
-            // render_pass.set_pipeline(&self.render_pipeline);
-            // render_pass.set_bind_group(0, &self.bind_group, &[]);
-            // render_pass.set_vertex_buffer(0, self.vertex_buffer.slice(..));
-            // render_pass.set_index_buffer(self.index_buffer.slice(..), wgpu::IndexFormat::Uint16);
-            // render_pass.draw_indexed(0..vertex::NUM_INDEX, 0, 0..1);
-
             self.off_screen_buffer.update_pass(
                 &self.device,
                 &mut encoder,
                 (self.config.width, self.config.height),
                 self.fill_color,
                 &self.render_pipeline,
-                &self.bind_group,
+                &[&self.bind_group],
                 &self.vertex_buffer,
                 &self.index_buffer,
                 vertex::NUM_INDEX,
@@ -545,6 +583,34 @@ impl Wallpaper {
         transition_kind: TransitionKind,
         transition_options: TransitionOptions,
     ) {
+        // Before we do any further rendering, grab the current buffer out for later use.
+        debug!("Saving the old wallpaper ...");
+        let mut old_buffer = OffScreen::create(
+            &self.device,
+            (self.config.width, self.config.height),
+            self.config.format,
+        );
+        let mut encoder = self
+            .device
+            .create_command_encoder(&wgpu::CommandEncoderDescriptor::default());
+        {
+            old_buffer.update_pass(
+                &self.device,
+                &mut encoder,
+                (self.config.width, self.config.height),
+                self.fill_color,
+                &self.render_pipeline,
+                &[&self.bind_group],
+                &self.vertex_buffer,
+                &self.index_buffer,
+                NUM_INDEX,
+            );
+        }
+        self.queue.submit(Some(encoder.finish()));
+        let old_texture_view = old_buffer
+            .into_frame()
+            .create_view(&texture::image_view_desc(Some("Old texture view")));
+
         debug!("Loading the new image: {img_path}");
         if let Err(e) = self
             .change_image_and_request_frame(qh, img_path, resize_option)
@@ -553,12 +619,6 @@ impl Wallpaper {
             error!("Failed to load the new image to create transition! : {e}");
             return;
         }
-
-        // Before we do any further rendering, grab the current buffer out.
-        let old_texture_view = self
-            .off_screen_buffer
-            .current_frame()
-            .create_view(&texture::image_view_desc(Some("Old texture view")));
 
         // The transition shader need the final texture view, so we need to render the new image to
         // the off-screen buffer. Then we can get the texture view from the off-screen buffer.
@@ -572,23 +632,25 @@ impl Wallpaper {
             (self.config.width, self.config.height),
             self.fill_color,
             &self.render_pipeline,
-            &self.bind_group,
+            &[&self.bind_group],
             &self.vertex_buffer,
             &self.index_buffer,
             NUM_INDEX,
         );
         self.queue.submit(Some(encoder.finish()));
+
         let new_texture_view = self
             .off_screen_buffer
             .current_frame()
             .create_view(&texture::image_view_desc(Some("New texture view")));
 
         let now = std::time::Instant::now();
-        debug!("Start time of transition: {now:?}");
+        debug!("Transition meta data: now={now:?}, duration={duration}, fps={fps}");
 
         let transition = match shaders::transition::create_transition(
             &self.device,
-            self.config.format,
+            // Render to off-screen buffer first
+            OffScreen::format(),
             old_texture_view,
             new_texture_view,
             transition_kind,
@@ -600,7 +662,15 @@ impl Wallpaper {
             None => return,
         };
 
-        let transition = TransitionState::new(now, duration, fps, transition);
+        let transition = TransitionState::new(
+            &self.device,
+            now,
+            duration,
+            fps,
+            transition,
+            (self.config.width, self.config.height),
+            self.config.format,
+        );
 
         if let Some(_) = self.transition.replace(transition) {
             // Anyway, if `TaskHub` functions correctly, there is always only one transition

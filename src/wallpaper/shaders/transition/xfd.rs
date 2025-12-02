@@ -1,7 +1,7 @@
 use crate::wallpaper::{
     MAG_FILTER, MIN_FILTER, MIPMAP_FILTER, bind_group, render_pipeline, sampler,
     shaders::{self, transition::TransitionPass},
-    vertex,
+    vertex::{self, NUM_INDEX},
 };
 use wgpu::{self, util::DeviceExt};
 
@@ -74,7 +74,7 @@ impl Xfd {
             contents: bytemuck::cast_slice(&vertex_buffer),
             usage: wgpu::BufferUsages::COPY_DST | wgpu::BufferUsages::VERTEX,
         });
-        let index_buffer = vertex::STRETCH_VERTICES;
+        let index_buffer = vertex::CCW_INDICES;
         let index_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
             label: Some("Xfd vertex buffer"),
             contents: bytemuck::cast_slice(&index_buffer),
@@ -122,8 +122,8 @@ impl TransitionPass for Xfd {
         fill_color: (f64, f64, f64),
     ) {
         let progress = {
-            let total_frames = duration / fps;
-            let elapsed_frames = elapsed / fps;
+            let total_frames = duration * fps;
+            let elapsed_frames = elapsed * fps;
             (elapsed_frames / total_frames) as f32
         };
         self.progress_buffer =
@@ -157,5 +157,6 @@ impl TransitionPass for Xfd {
         render_pass.set_bind_group(1, &self.progress_bind_group, &[]);
         render_pass.set_vertex_buffer(0, self.vertex_buffer.slice(..));
         render_pass.set_index_buffer(self.index_buffer.slice(..), wgpu::IndexFormat::Uint16);
+        render_pass.draw_indexed(0..NUM_INDEX, 0, 0..1);
     }
 }

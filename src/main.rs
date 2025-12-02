@@ -212,14 +212,38 @@ async fn process_message(
             let transition_options = args.transition_options;
 
             if transition_kind != TransitionKind::No {
-                warn!("The daemon doesn't support transition now. Fallback to immediate-switching");
+                info!("Starting transition: {image_path} ...");
+                info!("Resize option: {resize_option:?}");
+                info!("TransitionKind: {transition_kind:?}");
+
+                let duration = transition_options
+                    .duration
+                    .unwrap_or(server_cli::DEFAULT_TRANSITION_DURATION);
+                let fps = transition_options
+                    .fps
+                    .unwrap_or(server_cli::DEFAULT_TRANSITION_FPS);
+                wallpaper
+                    .start_transition(
+                        &qh,
+                        &image_path,
+                        resize_option,
+                        duration,
+                        fps,
+                        transition_kind,
+                        transition_options,
+                    )
+                    .await;
+
+                ipc::Reply::Ok
+            } else {
+                info!("Start immediate wallpaper switching: {image_path} ...");
+                info!("Resize option: {resize_option:?}");
+                let result = wallpaper
+                    .change_image_and_request_frame(qh, &image_path, resize_option)
+                    .await;
+
+                ipc::Reply::from_result(result)
             }
-
-            let result = wallpaper
-                .change_image_and_request_frame(qh, &image_path, resize_option)
-                .await;
-
-            ipc::Reply::from_result(result)
         }
     };
 

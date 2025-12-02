@@ -130,13 +130,17 @@ pub mod texture_and_sampler {
 
 pub mod uniform {
     pub mod progress {
+        #[repr(C)]
+        #[derive(Copy, Clone, bytemuck::Pod, bytemuck::Zeroable)]
+        struct ProgressUniform(f32);
+
         use wgpu::util::DeviceExt;
 
         pub fn create_progress_buffer(device: &wgpu::Device, progress: f32) -> wgpu::Buffer {
-            let slice = &[progress];
+            let progress = ProgressUniform(progress);
             device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
                 label: Some("Progress buffer"),
-                contents: bytemuck::cast_slice(slice),
+                contents: bytemuck::cast_slice(&[progress]),
                 usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
             })
         }

@@ -141,7 +141,7 @@ impl OffScreen {
         device,
         encoder,
         render_pipeline,
-        bind_group,
+        bind_groups,
         vertex_buffer,
         index_buffer,
         index_buffer_len
@@ -153,7 +153,7 @@ impl OffScreen {
         surface_size: (u32, u32),
         default_color: (f64, f64, f64),
         render_pipeline: &wgpu::RenderPipeline,
-        bind_group: &wgpu::BindGroup,
+        bind_groups: &[&wgpu::BindGroup],
         vertex_buffer: &wgpu::Buffer,
         index_buffer: &wgpu::Buffer,
         index_buffer_len: u32,
@@ -186,7 +186,9 @@ impl OffScreen {
         });
 
         render_pass.set_pipeline(render_pipeline);
-        render_pass.set_bind_group(0, bind_group, &[]);
+        for (i, &bind_group) in bind_groups.iter().enumerate() {
+            render_pass.set_bind_group(i as u32, bind_group, &[]);
+        }
         render_pass.set_vertex_buffer(0, vertex_buffer.slice(..));
         render_pass.set_index_buffer(index_buffer.slice(..), wgpu::IndexFormat::Uint16);
         render_pass.draw_indexed(0..index_buffer_len, 0, 0..1);
