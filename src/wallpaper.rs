@@ -515,6 +515,7 @@ impl Wallpaper {
         // If we have the new resize option same as the old resize option, we can just skip the
         // building of the vertex buffer.
         if resize_option != self.resize_option {
+            self.resize_option = resize_option;
             debug!("Re-filling the vertex buffer with the new resize option ...");
             let vertex_buffer = vertex::create_vertex_buffer_with_resize_option(
                 (self.config.width, self.config.height),
