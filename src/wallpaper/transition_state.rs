@@ -112,4 +112,12 @@ impl TransitionState {
 
         Ok(())
     }
+
+    pub fn current_frame(&self) -> &wgpu::Texture {
+        self.off_screen_buffer.current_frame()
+    }
+
+    pub fn into_frame(self) -> wgpu::Texture {
+        self.off_screen_buffer.into_frame()
+    }
 }
