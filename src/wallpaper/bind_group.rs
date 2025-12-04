@@ -179,4 +179,65 @@ pub mod uniform {
             device.create_bind_group(&desc)
         }
     }
+
+    use wgpu::{self, util::DeviceExt};
+
+    pub fn fragment_uniforms_layout_entries(count: usize) -> Vec<wgpu::BindGroupLayoutEntry> {
+        (0..count)
+            .map(|n| n as u32)
+            .map(|n| wgpu::BindGroupLayoutEntry {
+                binding: n,
+                visibility: wgpu::ShaderStages::FRAGMENT,
+                ty: wgpu::BindingType::Buffer {
+                    ty: wgpu::BufferBindingType::Uniform,
+                    has_dynamic_offset: false,
+                    min_binding_size: None,
+                },
+                count: None,
+            })
+            .collect()
+    }
+
+    pub fn layout_desc<'a>(
+        label: Option<&'a str>,
+        entries: &'a [wgpu::BindGroupLayoutEntry],
+    ) -> wgpu::BindGroupLayoutDescriptor<'a> {
+        wgpu::BindGroupLayoutDescriptor { label, entries }
+    }
+
+    pub fn uniforms_bind_group(
+        device: &wgpu::Device,
+        label: Option<&str>,
+        layout: &wgpu::BindGroupLayout,
+        buffers: &[&wgpu::Buffer],
+    ) -> wgpu::BindGroup {
+        let entries: Vec<_> = buffers
+            .iter()
+            .enumerate()
+            .map(|(i, buffer)| wgpu::BindGroupEntry {
+                binding: i as u32,
+                resource: buffer.as_entire_binding(),
+            })
+            .collect();
+
+        let desc = wgpu::BindGroupDescriptor {
+            label,
+            layout,
+            entries: &entries,
+        };
+
+        device.create_bind_group(&desc)
+    }
+
+    pub fn create_buffer<T: bytemuck::Pod + bytemuck::Zeroable>(
+        device: &wgpu::Device,
+        label: Option<&str>,
+        data: T,
+    ) -> wgpu::Buffer {
+        device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
+            label,
+            contents: bytemuck::cast_slice(&[data]),
+            usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
+        })
+    }
 }

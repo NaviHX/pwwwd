@@ -122,6 +122,7 @@ pub mod client {
     pub enum TransitionKind {
         No,
         Xfd,
+        Wipe,
     }
 
     #[derive(Copy, Clone, clap::Args, serde::Serialize, serde::Deserialize, Debug)]
@@ -134,9 +135,13 @@ pub mod client {
 
         #[arg(long, name = "allow-interrupt")]
         pub interrupt: bool,
+
+        #[arg(long, name = "wipe-angle")]
+        pub wipe_angle: Option<f64>,
     }
 
     pub const DEFAULT_TRANSITION_KIND: TransitionKind = TransitionKind::No;
     pub const DEFAULT_TRANSITION_DURATION: f64 = 3.0;
     pub const DEFAULT_TRANSITION_FPS: f64 = 30.0;
+    pub const DEFAULT_WIPE_ANGLE: f64 = 0.0;
 }
