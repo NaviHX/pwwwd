@@ -11,6 +11,8 @@ Phillips's wgpu-based Wayland wallpaper daemon.
     - :heavy_check_mark: Xfd
     - :heavy_check_mark: Wipe
     - :x: More transition options ...
-- :x: Restore last used wallpaper on startup
+- :construction: Restore last used wallpaper on startup
+    - :heavy_check_mark: Load last wallpaper
+    - :x: Display last wallpaper with the same options
 - :x: Multiple monitor support with individual wallpapers
 - :x: Video and animated image support
