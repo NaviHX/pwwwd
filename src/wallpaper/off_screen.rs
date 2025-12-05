@@ -229,6 +229,22 @@ impl OffScreen {
         render_pass.draw_indexed(0..self.index_count, 0, 0..1);
     }
 
+    pub fn update_pass_by(
+        &mut self,
+        device: &wgpu::Device,
+        encoder: &mut wgpu::CommandEncoder,
+        surface_size: (u32, u32),
+        mut pass: impl FnMut(&mut wgpu::CommandEncoder)
+    ) {
+        if surface_size != (self.frame.width(), self.frame.height()) {
+            debug!("Re-creating the off-screen buffer to fit in the new size: {surface_size:?}");
+            self.update_texture(device, surface_size);
+        }
+
+        debug!("Updating the off-screen buffer with provided function ...");
+        pass(encoder)
+    }
+
     pub fn current_frame(&self) -> &wgpu::Texture {
         &self.frame
     }

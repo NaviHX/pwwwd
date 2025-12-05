@@ -133,8 +133,8 @@ pub mod client {
         #[arg(long, name = "transition-fps")]
         pub fps: Option<f64>,
 
-        #[arg(long, name = "allow-interrupt")]
-        pub interrupt: bool,
+        #[arg(long, name = "no-interrupt")]
+        pub no_interrupt: bool,
 
         #[arg(long, name = "wipe-angle")]
         pub wipe_angle: Option<f64>,

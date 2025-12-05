@@ -589,31 +589,39 @@ impl Wallpaper {
     ) {
         // Before we do any further rendering, grab the current buffer out for later use.
         debug!("Saving the old wallpaper ...");
-        let mut old_buffer = OffScreen::create(
-            &self.device,
-            (self.config.width, self.config.height),
-            self.config.format,
-        );
-        let mut encoder = self
-            .device
-            .create_command_encoder(&wgpu::CommandEncoderDescriptor::default());
-        {
-            old_buffer.update_pass(
+        let old_texture_view = if let Some(interrupted_transition) = self.transition.take() {
+            debug!("Found on-fly transition! Saving its current frame instead ...");
+            interrupted_transition
+                .into_frame()
+                .create_view(&texture::image_view_desc(Some("Old transition frame")))
+        } else {
+            debug!("Re-rendering the old wallpaper ...");
+            let mut old_buffer = OffScreen::create(
                 &self.device,
-                &mut encoder,
                 (self.config.width, self.config.height),
-                self.fill_color,
-                &self.render_pipeline,
-                &[&self.bind_group],
-                &self.vertex_buffer,
-                &self.index_buffer,
-                NUM_INDEX,
+                self.config.format,
             );
-        }
-        self.queue.submit(Some(encoder.finish()));
-        let old_texture_view = old_buffer
-            .into_frame()
-            .create_view(&texture::image_view_desc(Some("Old texture view")));
+            let mut encoder = self
+                .device
+                .create_command_encoder(&wgpu::CommandEncoderDescriptor::default());
+            {
+                old_buffer.update_pass(
+                    &self.device,
+                    &mut encoder,
+                    (self.config.width, self.config.height),
+                    self.fill_color,
+                    &self.render_pipeline,
+                    &[&self.bind_group],
+                    &self.vertex_buffer,
+                    &self.index_buffer,
+                    NUM_INDEX,
+                );
+            }
+            self.queue.submit(Some(encoder.finish()));
+            old_buffer
+                .into_frame()
+                .create_view(&texture::image_view_desc(Some("Old texture view")))
+        };
 
         debug!("Loading the new image: {img_path}");
         if let Err(e) = self
@@ -674,7 +682,7 @@ impl Wallpaper {
             transition,
             (self.config.width, self.config.height),
             self.config.format,
-            if transition_options.interrupt {
+            if !transition_options.no_interrupt {
                 None
             } else {
                 Some(task_handle)
@@ -682,8 +690,8 @@ impl Wallpaper {
         );
 
         if let Some(_) = self.transition.replace(transition) {
-            // Anyway, if `TaskHub` functions correctly, there is always only one transition
-            // animating.
+            // Anyway, if `TaskHub` functions correctly or the old transition is taken by this
+            // function already, we won't find unfinished transitions here.
             error!(
                 "Found unfinished transition! The old one will be finished immediately\
                 and start a new one!"
