@@ -32,10 +32,10 @@ async fn main() -> Result<()> {
 
     let image_path = match args.load {
         server_cli::Load::FromPath { path } => path,
-        server_cli::Load::Restore { path } => {
-            let restore_path = path.unwrap_or(server_cli::default_restore_path()?);
+        server_cli::Load::Restore => {
+            let restore_path = server_cli::default_restore_path()?;
             let path = tokio::fs::read_to_string(restore_path).await?;
-            path
+            tokio::fs::canonicalize(path).await?
         }
     };
     builder = builder.with_img_path(image_path);
@@ -220,7 +220,7 @@ async fn process_message(
             let transition_options = args.transition_options;
 
             if transition_kind != TransitionKind::No {
-                info!("Starting transition: {image_path} ...");
+                info!("Starting transition: {image_path:?} ...");
                 info!("Resize option: {resize_option:?}");
                 info!("TransitionKind: {transition_kind:?}");
 
@@ -245,7 +245,7 @@ async fn process_message(
 
                 ipc::Reply::Ok
             } else {
-                info!("Start immediate wallpaper switching: {image_path} ...");
+                info!("Start immediate wallpaper switching: {image_path:?} ...");
                 info!("Resize option: {resize_option:?}");
                 let result = wallpaper
                     .change_image_and_request_frame(qh, &image_path, resize_option)

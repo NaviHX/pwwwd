@@ -9,15 +9,12 @@ mod texture;
 mod transition_state;
 mod vertex;
 
-use std::{io::BufRead, time::Duration};
-
 use anyhow::{Result, anyhow};
 use common::cli::{
     client::{TransitionKind, TransitionOptions},
     server as server_cli,
 };
 use config::Configurable;
-use image::DynamicImage;
 use off_screen::OffScreen;
 use smithay_client_toolkit::{
     compositor::{CompositorHandler, CompositorState},
@@ -32,6 +29,10 @@ use smithay_client_toolkit::{
         },
     },
     shm::{Shm, ShmHandler},
+};
+use std::{
+    os::unix::ffi::OsStrExt,
+    path::{Path, PathBuf},
 };
 use tracing::{debug, error, warn};
 use wayland_client::{Connection, QueueHandle, globals::GlobalList};
@@ -59,7 +60,7 @@ const MIPMAP_FILTER: wgpu::FilterMode = wgpu::FilterMode::Nearest;
 
 #[derive(Default)]
 pub struct WallpaperBuilder {
-    load_wallpaper: Option<String>,
+    load_wallpaper: Option<PathBuf>,
     fill_color: Option<(f64, f64, f64)>,
     resize_option: Option<server_cli::ResizeOption>,
 
@@ -73,7 +74,7 @@ impl WallpaperBuilder {
         Self::default()
     }
 
-    pub fn with_img_path(mut self, path: impl Into<String>) -> Self {
+    pub fn with_img_path(mut self, path: impl Into<PathBuf>) -> Self {
         self.load_wallpaper = Some(path.into());
         self
     }
@@ -221,6 +222,9 @@ impl WallpaperBuilder {
 
             texture
         };
+
+        // After loading the image, try to save the path into state file.
+        Wallpaper::save_image_path_to_restore_file(&load_wallpaper).await;
 
         debug!("Trying to create a sampler ...");
         let sampler = device.create_sampler(&sampler::desc(
@@ -488,15 +492,15 @@ impl Wallpaper {
     pub async fn change_image_and_request_frame(
         &mut self,
         qh: &QueueHandle<Self>,
-        image_path: &str,
+        image_path: &Path,
         resize_option: server_cli::ResizeOption,
     ) -> Result<()> {
         // Load the new image.
-        debug!("Trying to load the new image: {image_path}");
+        debug!("Trying to load the new image: {image_path:?}");
         let img = match image::open(image_path) {
             Ok(img) => img,
             Err(e) => {
-                let report = format!("Failed to load the new image in `{image_path}`: {e}");
+                let report = format!("Failed to load the new image in `{image_path:?}`: {e}");
                 error!("{}", report);
                 return Err(anyhow!(report));
             }
@@ -527,6 +531,9 @@ impl Wallpaper {
 
             texture
         };
+
+        // If the new image is loaded, try to write the image path into the state file.
+        Self::save_image_path_to_restore_file(&image_path).await;
 
         // Set the new texture;
         debug!("Set new texture for wallpaper ...");
@@ -579,7 +586,7 @@ impl Wallpaper {
     pub async fn start_transition(
         &mut self,
         qh: &QueueHandle<Self>,
-        img_path: &str,
+        img_path: &Path,
         resize_option: server_cli::ResizeOption,
         duration: f64,
         fps: f64,
@@ -623,7 +630,7 @@ impl Wallpaper {
                 .create_view(&texture::image_view_desc(Some("Old texture view")))
         };
 
-        debug!("Loading the new image: {img_path}");
+        debug!("Loading the new image: {img_path:?}");
         if let Err(e) = self
             .change_image_and_request_frame(qh, img_path, resize_option)
             .await
@@ -708,6 +715,22 @@ impl Wallpaper {
     ) -> Result<(), TransitionRenderError> {
         let now = std::time::Instant::now();
         transition_state.render_pass(&self.device, encoder, now, target_view, self.fill_color)
+    }
+
+    #[tracing::instrument]
+    async fn save_image_path_to_restore_file(path: &Path) {
+        match server_cli::default_restore_path() {
+            Err(e) => error!("Failed to get restore file path: {e}"),
+            Ok(restore_file_path) => {
+                if let Err(e) =
+                    tokio::fs::write(restore_file_path, path.as_os_str().as_bytes()).await
+                {
+                    error!("Failed to write image path to restore file: {e}");
+                }
+            }
+        }
+
+        debug!("Image path wrote to restore file: {path:?}");
     }
 }
 

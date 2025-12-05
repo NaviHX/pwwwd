@@ -1,6 +1,11 @@
+fn canonicalize_path(s: &str) -> Result<std::path::PathBuf, String> {
+    std::fs::canonicalize(s).map_err(|e| format!("{}: {}", s, e))
+}
+
 pub mod server {
     use anyhow::{Result, anyhow};
     use directories::BaseDirs;
+    use std::path::PathBuf;
 
     #[derive(clap::Parser)]
     pub struct Args {
@@ -18,14 +23,14 @@ pub mod server {
     pub enum Load {
         #[command(name = "load")]
         FromPath {
-            path: String,
+            #[arg(value_parser = super::canonicalize_path)]
+            path: PathBuf,
         },
-        Restore {
-            path: Option<String>,
-        },
+        Restore,
     }
 
-    pub fn default_restore_path() -> Result<String> {
+    /// Get the restore file path. Create parent directory if it doesn't exist.
+    pub fn default_restore_path() -> Result<PathBuf> {
         let dirs = BaseDirs::new().ok_or(anyhow!(
             "Cannot create `BaseDirs` to get default restore path"
         ))?;
@@ -33,11 +38,16 @@ pub mod server {
         let dir = dirs
             .state_dir()
             .ok_or(anyhow!("Cannot find XDG state dir"))?
-            .to_str()
-            .ok_or(anyhow!("Cannot create str from dir"))?
-            .to_string();
+            .join("pwwwd");
 
-        Ok(dir)
+        if !dir.exists() {
+            std::fs::create_dir_all(&dir)?;
+        }
+
+        let restore_file = dir
+            .join("restore-path") .to_owned();
+
+        Ok(restore_file)
     }
 
     fn parse_rgb(s: &str) -> Result<(u8, u8, u8)> {
@@ -79,6 +89,8 @@ pub mod server {
 }
 
 pub mod client {
+    use std::path::PathBuf;
+
     pub use super::server::{Resize, ResizeOption};
 
     #[derive(clap::Parser)]
@@ -91,7 +103,8 @@ pub mod client {
     pub enum ClientSubcommand {
         #[command(name = "img")]
         SwitchImage {
-            image: String,
+            #[arg(value_parser = super::canonicalize_path)]
+            image: PathBuf,
 
             #[command(flatten)]
             resize: Resize,

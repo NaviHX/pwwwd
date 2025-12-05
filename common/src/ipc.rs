@@ -25,7 +25,7 @@ pub enum Message {
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct ImageArgs {
-    pub path: String,
+    pub path: PathBuf,
     pub resize: ResizeOption,
     pub transition: TransitionKind,
     pub transition_options: TransitionOptions,
