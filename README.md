@@ -9,7 +9,8 @@ Phillips's wgpu-based Wayland wallpaper daemon.
 - :heavy_check_mark: Daemon control for wallpaper switching (via command line)
 - :construction: Wallpaper transition animations
     - :heavy_check_mark: Xfd
-    - :x: wave ...
+    - :heavy_check_mark: Wipe
+    - :x: More transition options ...
 - :x: Restore last used wallpaper on startup
 - :x: Multiple monitor support with individual wallpapers
 - :x: Video and animated image support
