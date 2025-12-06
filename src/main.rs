@@ -1,3 +1,4 @@
+mod ease;
 mod server;
 mod wallpaper;
 
