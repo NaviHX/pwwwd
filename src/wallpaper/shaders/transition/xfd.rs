@@ -116,16 +116,9 @@ impl TransitionPass for Xfd {
         device: &wgpu::Device,
         encoder: &mut wgpu::CommandEncoder,
         target_view: &wgpu::TextureView,
-        duration: f64,
-        elapsed: f64,
-        fps: f64,
+        progress: f32,
         fill_color: (f64, f64, f64),
     ) {
-        let progress = {
-            let total_frames = duration * fps;
-            let elapsed_frames = elapsed * fps;
-            (elapsed_frames / total_frames) as f32
-        };
         self.progress_buffer =
             bind_group::uniform::progress::create_progress_buffer(device, progress);
         self.progress_bind_group = bind_group::uniform::progress::bind_group(

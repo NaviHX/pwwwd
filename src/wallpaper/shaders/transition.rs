@@ -13,9 +13,7 @@ pub trait TransitionPass {
         device: &wgpu::Device,
         encoder: &mut wgpu::CommandEncoder,
         target_view: &wgpu::TextureView,
-        duration: f64,
-        elapsed: f64,
-        fps: f64,
+        progress: f32,
         fill_color: (f64, f64, f64),
     );
 }
@@ -258,13 +256,9 @@ macro_rules! simple_transition {
                 device: &wgpu::Device,
                 encoder: &mut wgpu::CommandEncoder,
                 target_view: &wgpu::TextureView,
-                duration: f64,
-                elapsed: f64,
-                fps: f64,
+                progress: f32,
                 fill_color: (f64, f64, f64),
             ) {
-                let progress = (elapsed / duration) as f32;
-
                 let data = UniformData {
                     progress,
                     $($data: self.$data,)*

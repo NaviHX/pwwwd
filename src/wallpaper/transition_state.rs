@@ -98,13 +98,13 @@ impl TransitionState {
                 .create_view(&texture::image_view_desc(Some(
                     "Transition off screen view",
                 )));
+
+        let progress = (elapsed_seconds / self.duration) as f32;
         self.transition.render_pass(
             device,
             encoder,
             &off_screen_view,
-            self.duration,
-            elapsed_seconds,
-            self.fps,
+            progress,
             fill_color,
         );
         self.off_screen_buffer
