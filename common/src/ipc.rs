@@ -1,6 +1,7 @@
 use crate::cli::{
     client::{
-        ClientSubcommand, DEFAULT_EASE_KIND, DEFAULT_TRANSITION_KIND, EaseKind, ResizeOption, TransitionKind, TransitionOptions
+        ClientSubcommand, DEFAULT_EASE_KIND, DEFAULT_TRANSITION_KIND, EaseKind, ResizeOption,
+        TransitionKind, TransitionOptions,
     },
     server::DEFAULT_RESIZE,
 };

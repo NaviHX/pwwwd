@@ -234,7 +234,7 @@ impl OffScreen {
         device: &wgpu::Device,
         encoder: &mut wgpu::CommandEncoder,
         surface_size: (u32, u32),
-        mut pass: impl FnMut(&mut wgpu::CommandEncoder)
+        mut pass: impl FnMut(&mut wgpu::CommandEncoder),
     ) {
         if surface_size != (self.frame.width(), self.frame.height()) {
             debug!("Re-creating the off-screen buffer to fit in the new size: {surface_size:?}");

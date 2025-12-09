@@ -219,12 +219,13 @@ async fn process_message(
             let resize_option = args.resize;
             let transition_kind = args.transition;
             let transition_options = args.transition_options;
-            // TODO: Retrieve easing parameter.
+            let ease = args.ease;
 
             if transition_kind != TransitionKind::No {
                 info!("Starting transition: {image_path:?} ...");
                 info!("Resize option: {resize_option:?}");
                 info!("TransitionKind: {transition_kind:?}");
+                info!("EaseKind: {ease:?}");
 
                 let duration = transition_options
                     .duration
@@ -241,6 +242,7 @@ async fn process_message(
                         fps,
                         transition_kind,
                         transition_options,
+                        ease,
                         task_handle,
                     )
                     .await;
