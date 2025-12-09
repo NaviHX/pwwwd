@@ -78,9 +78,9 @@ static_curve!(EaseInOutExpo (x) := {
     }
 });
 
-static_curve!(EaseIn (x) := 1.0 - (1.0 - x.powf(2.0)).sqrt());
-static_curve!(EaseOut (x) := (1.0 - ((x - 1.0).powf(2.0))).sqrt());
-static_curve!(EaseInOut (x) := {
+static_curve!(EaseInCirc (x) := 1.0 - (1.0 - x.powf(2.0)).sqrt());
+static_curve!(EaseOutCirc (x) := (1.0 - ((x - 1.0).powf(2.0))).sqrt());
+static_curve!(EaseInOutCirc (x) := {
     if x < 0.5 {
         (1.0 - (1.0 - (2.0 * x).powf(2.0)).sqrt()) / 2.0
     } else {
