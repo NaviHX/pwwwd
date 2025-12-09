@@ -1,6 +1,6 @@
 use crate::cli::{
     client::{
-        ClientSubcommand, DEFAULT_TRANSITION_KIND, ResizeOption, TransitionKind, TransitionOptions,
+        ClientSubcommand, DEFAULT_EASE_KIND, DEFAULT_TRANSITION_KIND, EaseKind, ResizeOption, TransitionKind, TransitionOptions
     },
     server::DEFAULT_RESIZE,
 };
@@ -29,6 +29,7 @@ pub struct ImageArgs {
     pub resize: ResizeOption,
     pub transition: TransitionKind,
     pub transition_options: TransitionOptions,
+    pub ease: EaseKind,
 }
 
 impl Message {
@@ -39,6 +40,7 @@ impl Message {
                 resize,
                 transition,
                 transition_options,
+                ease,
             } => {
                 let resize = if resize.no_resize {
                     ResizeOption::No
@@ -52,12 +54,21 @@ impl Message {
                     transition.transition.unwrap_or(DEFAULT_TRANSITION_KIND)
                 };
 
+                let ease = if ease.no_ease {
+                    EaseKind::No
+                } else if let Some((px1, py1, px2, py2)) = ease.cubic_curve {
+                    EaseKind::CubicBezier(px1, py1, px2, py2)
+                } else {
+                    ease.ease.unwrap_or(DEFAULT_EASE_KIND)
+                };
+
                 Self::Image {
                     args: ImageArgs {
                         path: image,
                         resize,
                         transition,
                         transition_options,
+                        ease,
                     },
                 }
             }

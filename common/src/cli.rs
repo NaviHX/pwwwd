@@ -44,8 +44,7 @@ pub mod server {
             std::fs::create_dir_all(&dir)?;
         }
 
-        let restore_file = dir
-            .join("restore-path") .to_owned();
+        let restore_file = dir.join("restore-path").to_owned();
 
         Ok(restore_file)
     }
@@ -89,6 +88,7 @@ pub mod server {
 }
 
 pub mod client {
+    use anyhow::{Result, anyhow};
     use std::path::PathBuf;
 
     pub use super::server::{Resize, ResizeOption};
@@ -114,6 +114,9 @@ pub mod client {
 
             #[command(flatten)]
             transition_options: TransitionOptions,
+
+            #[command(flatten)]
+            ease: Ease,
         },
 
         Kill,
@@ -138,6 +141,78 @@ pub mod client {
         Wipe,
     }
 
+    #[derive(clap::Args)]
+    #[group(required = false, multiple = false)]
+    pub struct Ease {
+        #[arg(long)]
+        pub no_ease: bool,
+
+        #[arg(long)]
+        pub ease: Option<EaseKind>,
+
+        #[arg(long, value_parser = parse_cubic_bezier_control_points)]
+        pub cubic_curve: Option<(f64, f64, f64, f64)>,
+    }
+
+    pub fn parse_cubic_bezier_control_points(s: &str) -> Result<(f64, f64, f64, f64)> {
+        let point_str: Vec<&str> = s.split(",").collect();
+
+        if point_str.len() != 4 {
+            return Err(anyhow!(
+                "Parameter of cubic bezier control points must be in the form of `<PX1>,<PY1>,<PX2>,<PY2>`"
+            ));
+        }
+
+        Ok((
+            point_str[0]
+                .parse::<f64>()
+                .map_err(|e| anyhow!("Failed to parse control point coordinate: {e}"))?,
+            point_str[1]
+                .parse::<f64>()
+                .map_err(|e| anyhow!("Failed to parse control point coordinate: {e}"))?,
+            point_str[2]
+                .parse::<f64>()
+                .map_err(|e| anyhow!("Failed to parse control point coordinate: {e}"))?,
+            point_str[3]
+                .parse::<f64>()
+                .map_err(|e| anyhow!("Failed to parse control point coordinate: {e}"))?,
+        ))
+    }
+
+    #[derive(Copy, Clone, clap::ValueEnum, serde::Serialize, serde::Deserialize, Debug)]
+    pub enum EaseKind {
+        No,
+
+        #[value(skip)]
+        CubicBezier(f64, f64, f64, f64),
+
+        Linear,
+        Hold,
+        Step,
+
+        EaseInQuad,
+        EaseOutQuad,
+        EaseInOutQuad,
+        EaseInCubic,
+        EaseOutCubic,
+        EaseInOutCubic,
+        EaseInQuart,
+        EaseOutQuart,
+        EaseInOutQuart,
+        EaseInQuint,
+        EaseOutQuint,
+        EaseInOutQuint,
+        EaseInSine,
+        EaseOutSine,
+        EaseInOutSine,
+        EaseInExpo,
+        EaseOutExpo,
+        EaseInOutExpo,
+        EaseInCirc,
+        EaseOutCirc,
+        EaseInOutCirc,
+    }
+
     #[derive(Copy, Clone, clap::Args, serde::Serialize, serde::Deserialize, Debug)]
     pub struct TransitionOptions {
         #[arg(long, name = "transition-duration")]
@@ -157,4 +232,5 @@ pub mod client {
     pub const DEFAULT_TRANSITION_DURATION: f64 = 3.0;
     pub const DEFAULT_TRANSITION_FPS: f64 = 30.0;
     pub const DEFAULT_WIPE_ANGLE: f64 = 0.0;
+    pub const DEFAULT_EASE_KIND: EaseKind = EaseKind::No;
 }

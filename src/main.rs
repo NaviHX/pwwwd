@@ -219,6 +219,7 @@ async fn process_message(
             let resize_option = args.resize;
             let transition_kind = args.transition;
             let transition_options = args.transition_options;
+            // TODO: Retrieve easing parameter.
 
             if transition_kind != TransitionKind::No {
                 info!("Starting transition: {image_path:?} ...");
