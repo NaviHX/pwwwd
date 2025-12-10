@@ -229,6 +229,7 @@ impl OffScreen {
         render_pass.draw_indexed(0..self.index_count, 0, 0..1);
     }
 
+    #[allow(unused)]
     pub fn update_pass_by(
         &mut self,
         device: &wgpu::Device,

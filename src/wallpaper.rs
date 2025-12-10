@@ -42,7 +42,6 @@ use crate::{
     ease,
     server::TaskHandle,
     wallpaper::{
-        shaders::transition::TransitionPass,
         transition_state::{TransitionRenderError, TransitionState},
         vertex::NUM_INDEX,
     },
@@ -92,16 +91,19 @@ impl WallpaperBuilder {
         }
     }
 
+    #[allow(unused)]
     pub fn with_mag_filter_mode(mut self, filter: wgpu::FilterMode) -> Self {
         self.mag_filter = Some(filter);
         self
     }
 
+    #[allow(unused)]
     pub fn with_min_filter_mode(mut self, filter: wgpu::FilterMode) -> Self {
         self.min_filter = Some(filter);
         self
     }
 
+    #[allow(unused)]
     pub fn with_mipmap_filter_mode(mut self, filter: wgpu::FilterMode) -> Self {
         self.mipmap_filter = Some(filter);
         self
@@ -335,8 +337,10 @@ pub struct Wallpaper {
     // Wayland event handlers,
     registry_state: RegistryState,
     output_state: OutputState,
+    #[allow(unused)]
     compositor_state: CompositorState,
     shm_state: Shm,
+    #[allow(unused)]
     layer_shell_state: LayerShell,
 
     // Image
@@ -397,14 +401,10 @@ impl Wallpaper {
                 .device
                 .create_command_encoder(&wgpu::CommandEncoderDescriptor::default());
 
-            let now = std::time::Instant::now();
-
-            let finished = match transition_state.render_pass(
-                &self.device,
+            let finished = match self.draw_transition(
+                &mut transition_state,
                 &mut encoder,
-                now,
                 &view,
-                self.fill_color,
             ) {
                 Ok(_) => false,
                 Err(e) => match e {
