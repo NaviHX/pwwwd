@@ -88,6 +88,6 @@ static_curve!(EaseInOutCirc (x) := {
     if x < 0.5 {
         (1.0 - (1.0 - (2.0 * x).powf(2.0)).sqrt()) / 2.0
     } else {
-        (1.0 - (-2.0 * x + 2.0).powf(2.0)).sqrt() / 2.0
+        ((1.0 - (-2.0 * x + 2.0).powf(2.0)).sqrt() + 1.0) / 2.0
     }
 });
