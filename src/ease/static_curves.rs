@@ -48,7 +48,7 @@ static_curve!(EaseInQuart (x) := x * x * x * x);
 static_curve!(EaseOutQuart (x) := 1.0 - (1.0 - x).powf(4.0));
 static_curve!(EaseInOutQuart (x) := {
     if x < 0.5 {
-        8.0 * x * x * x
+        8.0 * x * x * x * x
     } else {
         1.0 - (-2.0 * x + 2.0).powf(4.0) / 2.0
     }
@@ -58,7 +58,7 @@ static_curve!(EaseInQuint (x) := x * x * x * x * x);
 static_curve!(EaseOutQuint (x) := 1.0 - (1.0 - x).powf(5.0));
 static_curve!(EaseInOutQuint (x) := {
     if x < 0.5 {
-        4.0 * x * x * x
+        16.0 * x * x * x * x * x
     } else {
         1.0 - (-2.0 * x + 2.0).powf(5.0) / 2.0
     }
