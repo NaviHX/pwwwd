@@ -11,7 +11,7 @@ mod vertex;
 
 use anyhow::{Result, anyhow};
 use common::cli::{
-    client::{TransitionKind, TransitionOptions},
+    client::{EaseKind, TransitionKind, TransitionOptions},
     server as server_cli,
 };
 use config::Configurable;
@@ -39,6 +39,7 @@ use wayland_client::{Connection, QueueHandle, globals::GlobalList};
 use wgpu::{self, util::DeviceExt};
 
 use crate::{
+    ease,
     server::TaskHandle,
     wallpaper::{
         shaders::transition::TransitionPass,
@@ -592,6 +593,7 @@ impl Wallpaper {
         fps: f64,
         transition_kind: TransitionKind,
         transition_options: TransitionOptions,
+        ease_kind: EaseKind,
         task_handle: TaskHandle,
     ) {
         // Before we do any further rendering, grab the current buffer out for later use.
@@ -681,12 +683,14 @@ impl Wallpaper {
             None => return,
         };
 
+        let easing_function = ease::create_easing_curve(ease_kind);
         let transition = TransitionState::new(
             &self.device,
             now,
             duration,
             fps,
             transition,
+            easing_function,
             (self.config.width, self.config.height),
             self.config.format,
             if !transition_options.no_interrupt {

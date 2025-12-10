@@ -1,4 +1,5 @@
 use crate::{
+    ease::Curve,
     server::TaskHandle,
     wallpaper::{off_screen::OffScreen, shaders::transition::TransitionPass, texture},
 };
@@ -21,6 +22,7 @@ pub struct TransitionState {
     fps: f64,
     last_rendered: Instant,
     pub transition: Box<dyn TransitionPass>,
+    easing_function: Box<dyn Curve>,
     off_screen_buffer: OffScreen,
     first_rendered: bool,
     _task_handle: Option<TaskHandle>,
@@ -33,6 +35,7 @@ impl TransitionState {
         duration: f64,
         fps: f64,
         transition: Box<dyn TransitionPass>,
+        easing_function: Box<dyn Curve>,
         size: (u32, u32),
         target_format: wgpu::TextureFormat,
         task_handle: Option<TaskHandle>,
@@ -44,6 +47,7 @@ impl TransitionState {
             fps,
             last_rendered: start,
             transition,
+            easing_function,
             off_screen_buffer,
             first_rendered: false,
             _task_handle: task_handle,
@@ -98,13 +102,14 @@ impl TransitionState {
                 .create_view(&texture::image_view_desc(Some(
                     "Transition off screen view",
                 )));
+
+        let progress = elapsed_seconds / self.duration;
+        let eased_progress = self.easing_function.f(progress);
         self.transition.render_pass(
             device,
             encoder,
             &off_screen_view,
-            self.duration,
-            elapsed_seconds,
-            self.fps,
+            eased_progress as f32,
             fill_color,
         );
         self.off_screen_buffer
