@@ -68,13 +68,17 @@ static_curve!(EaseInSine (x) := 1.0 - (x * f64::consts::PI / 2.0).cos());
 static_curve!(EaseOutSine (x) := (x * f64::consts::PI / 2.0).sin());
 static_curve!(EaseInOutSine (x) := (1.0 - (x * f64::consts::PI).cos()) / 2.0);
 
-static_curve!(EaseInExpo (x) := 2.0f64.powf(x) - 1.0);
-static_curve!(EaseOutExpo (x) := (x + 1.0).log2());
+static_curve!(EaseInExpo (x) := if x == 0.0 { 0.0 } else { 2f64.powf(10.0 * x - 10.0) });
+static_curve!(EaseOutExpo (x) := if x == 1.0 { 1.0 } else { 1.0 - 2f64.powf(-10.0 * x) });
 static_curve!(EaseInOutExpo (x) := {
-    if x < 0.5 {
-        2.0f64.powf(2.0 * x - 2.0)
+    if x == 0.0 {
+        0.0
+    } else if x == 1.0 {
+        1.0
+    } else if x < 0.5 {
+        2f64.powf(20.0 * x - 10.0) / 2.0
     } else {
-        (2.0 * x).log2() / 2.0 + 0.5
+        (2.0 - 2f64.powf(-20.0 * x + 10.0)) / 2.0
     }
 });
 
