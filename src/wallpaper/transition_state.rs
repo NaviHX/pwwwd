@@ -6,7 +6,6 @@ use crate::{
 use std::time::Instant;
 use thiserror::Error;
 use tracing::debug;
-use wgpu;
 
 #[derive(Error, Debug)]
 pub enum TransitionRenderError {
@@ -29,6 +28,7 @@ pub struct TransitionState {
 }
 
 impl TransitionState {
+    #[allow(clippy::too_many_arguments)]
     pub fn new(
         device: &wgpu::Device,
         start: Instant,

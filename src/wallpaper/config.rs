@@ -1,5 +1,3 @@
-use wgpu;
-
 pub fn create(
     format: &wgpu::TextureFormat,
     surface_caps: &wgpu::SurfaceCapabilities,

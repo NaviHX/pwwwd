@@ -42,7 +42,7 @@ impl OffScreen {
         let layout =
             device.create_bind_group_layout(&bind_group::texture_and_sampler::layout_desc(None));
         let bind_group = bind_group::texture_and_sampler::bind_group(
-            &device,
+            device,
             None,
             &layout,
             &texture_view,
@@ -84,7 +84,7 @@ impl OffScreen {
         let layout =
             device.create_bind_group_layout(&bind_group::texture_and_sampler::layout_desc(None));
         let bind_group = bind_group::texture_and_sampler::bind_group(
-            &device,
+            device,
             None,
             &layout,
             &texture_view,
@@ -109,7 +109,7 @@ impl OffScreen {
 
         debug!("Trying to build the off-screen render pipeline ...");
         let render_pipeline = render_pipeline::create_pipeline(
-            &device,
+            device,
             None,
             None,
             &[&layout],
@@ -146,6 +146,7 @@ impl OffScreen {
         index_buffer,
         index_buffer_len
     ))]
+    #[allow(clippy::too_many_arguments)]
     pub fn update_pass(
         &mut self,
         device: &wgpu::Device,

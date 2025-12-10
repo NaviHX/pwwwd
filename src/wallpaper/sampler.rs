@@ -1,5 +1,3 @@
-use wgpu;
-
 pub fn desc(
     label: Option<&str>,
     (x_address_mode, y_address_mode): (wgpu::AddressMode, wgpu::AddressMode),
