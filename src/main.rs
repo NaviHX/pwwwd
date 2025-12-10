@@ -140,7 +140,7 @@ async fn main() -> Result<()> {
                     Some((task_handle, message, reply_tx)) => {
                         if let ipc::Message::Kill = message {
                             info!("Received a shutdown signal from client, stopping ...");
-                            if let Err(_) = reply_tx.send(ipc::Reply::Ok) {
+                            if reply_tx.send(ipc::Reply::Ok).is_err() {
                                 error!("Failed to send shutdown reply to client!");
                             }
 
@@ -235,7 +235,7 @@ async fn process_message(
                     .unwrap_or(server_cli::DEFAULT_TRANSITION_FPS);
                 wallpaper
                     .start_transition(
-                        &qh,
+                        qh,
                         &image_path,
                         resize_option,
                         duration,
@@ -288,7 +288,7 @@ async fn wait_shutdown_sig() -> Result<oneshot::Receiver<()>> {
             _ = sigquit.recv() => {},
         };
 
-        if let Err(_) = sig_tx.send(()) {
+        if sig_tx.send(()).is_err() {
             error!("Failed to send stopping message from signal hooks!");
         }
     });

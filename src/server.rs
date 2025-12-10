@@ -137,9 +137,10 @@ impl TaskHub {
     }
 
     fn create_handle(&self) -> Result<TaskHandle, TaskHubError> {
-        if let Err(_) =
-            self.busy_flag
-                .compare_exchange(false, true, Ordering::AcqRel, Ordering::Acquire)
+        if self
+            .busy_flag
+            .compare_exchange(false, true, Ordering::AcqRel, Ordering::Acquire)
+            .is_err()
         {
             return Err(TaskHubError::Busy);
         }

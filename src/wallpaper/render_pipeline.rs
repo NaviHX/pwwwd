@@ -1,5 +1,4 @@
-use wgpu;
-
+#[allow(clippy::too_many_arguments)]
 pub fn create_pipeline(
     device: &wgpu::Device,
     layout_label: Option<&str>,
