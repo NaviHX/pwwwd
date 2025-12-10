@@ -1,5 +1,4 @@
 use common::cli::client::EaseKind;
-use std::borrow::Borrow;
 
 pub trait Curve {
     fn f(&self, x: f64) -> f64;
@@ -8,11 +7,17 @@ pub trait Curve {
 pub mod cubic_bezier;
 pub mod static_curves;
 
-fn ease_with<C>(from: f64, to: f64, progress: f64, curve: impl Borrow<C>) -> f64
+pub fn ease_with<C>(from: f64, to: f64, progress: f64, curve: &C) -> f64
 where
     C: Curve,
 {
-    from + (to - from) * curve.borrow().f(progress)
+    from + (to - from) * curve.f(progress)
+}
+
+impl<T: Curve + ?Sized> Curve for Box<T> {
+    fn f(&self, x: f64) -> f64 {
+        (**self).f(x)
+    }
 }
 
 pub fn create_easing_curve(ease_kind: EaseKind) -> Box<dyn Curve> {

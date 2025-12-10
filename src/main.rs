@@ -13,7 +13,7 @@ use tokio::{
     signal::unix::SignalKind,
     sync::{mpsc, oneshot},
 };
-use tracing::{debug, error, info, warn};
+use tracing::{debug, error, info};
 use wayland_client::QueueHandle;
 use wayland_client::{Connection, globals::registry_queue_init};
 
@@ -64,7 +64,7 @@ async fn main() -> Result<()> {
     let task_hub = Arc::new(TaskHub::new());
     let (request_tx, mut request_rx) = mpsc::channel(REQUSET_BUFFER_SIZE);
 
-    let server_join_handle = server.run(move |socket, addr| {
+    let server_join_handle = server.run(move |socket, _addr| {
         let task_hub = task_hub.clone();
         let request_tx = request_tx.clone();
 

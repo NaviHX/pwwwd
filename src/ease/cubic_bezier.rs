@@ -86,7 +86,6 @@ impl CubicBezier {
     fn binary_search(&self, x: f64, mut l: f64, mut r: f64) -> f64 {
         let mut current_t = 0.0;
         let mut current_x: f64 = 0.0;
-        let mut i = 0;
         let mut has_run_once = false;
 
         while !has_run_once || current_x.abs() > BINARY_SEARCH_PRECISION {
@@ -99,8 +98,6 @@ impl CubicBezier {
             } else {
                 l = current_t;
             }
-
-            i += 1;
         }
 
         current_t

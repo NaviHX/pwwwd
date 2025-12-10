@@ -5,6 +5,7 @@ use crate::wallpaper::{
 };
 use wgpu::{self, util::DeviceExt};
 
+#[allow(unused)]
 pub struct Xfd {
     // Textures and samplers
     old_texture_view: wgpu::TextureView,

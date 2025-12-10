@@ -1,5 +1,5 @@
 use crate::{
-    ease::Curve,
+    ease::{Curve, ease_with},
     server::TaskHandle,
     wallpaper::{off_screen::OffScreen, shaders::transition::TransitionPass, texture},
 };
@@ -104,7 +104,7 @@ impl TransitionState {
                 )));
 
         let progress = elapsed_seconds / self.duration;
-        let eased_progress = self.easing_function.f(progress);
+        let eased_progress = ease_with(0.0, 1.0, progress, &self.easing_function);
         self.transition.render_pass(
             device,
             encoder,
@@ -118,6 +118,7 @@ impl TransitionState {
         Ok(())
     }
 
+    #[allow(unused)]
     pub fn current_frame(&self) -> &wgpu::Texture {
         self.off_screen_buffer.current_frame()
     }
