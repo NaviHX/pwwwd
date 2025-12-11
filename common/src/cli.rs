@@ -8,24 +8,32 @@ pub mod server {
     use std::path::PathBuf;
 
     #[derive(clap::Parser)]
+    #[command(name = "pwwwd")]
+    #[command(version = "0.1.0")]
+    #[command(about = "Phillips's wgpu-based Wayland wallpaper daemon")]
     pub struct Args {
+        /// Which image to load as the first wallpaper since startup
         #[command(subcommand)]
         pub load: Load,
 
+        /// How to resize the image
         #[command(flatten)]
         pub resize: Resize,
 
+        /// Which color to fill the padding with when loaded image does not fill the screen
         #[arg(long ,short, value_parser = parse_rgb)]
         pub fill_rgb: Option<(u8, u8, u8)>,
     }
 
     #[derive(clap::Subcommand)]
     pub enum Load {
+        /// Load image from specified path
         #[command(name = "load")]
         FromPath {
             #[arg(value_parser = super::canonicalize_path)]
             path: PathBuf,
         },
+        /// Restore last used image
         Restore,
     }
 
@@ -65,9 +73,11 @@ pub mod server {
     #[derive(clap::Args)]
     #[group(required = false, multiple = false)]
     pub struct Resize {
+        /// Do not resize the image. Equavalent to `--resize no`
         #[arg(long)]
         pub no_resize: bool,
 
+        /// How to resize image
         #[arg(long)]
         pub resize: Option<ResizeOption>,
     }
@@ -76,9 +86,15 @@ pub mod server {
         Copy, Clone, clap::ValueEnum, Debug, serde::Serialize, serde::Deserialize, PartialEq, Eq,
     )]
     pub enum ResizeOption {
+        /// Do not resize the image
         No,
+        /// Resize the image to fill the entire screen, cropping out parts that don't fit. Default
+        /// resize option
         Crop,
+        /// Resize the image to fit inside the screen, preserving the original aspect ratio
         Fit,
+        /// Stretch the image to fit inside the screen, without preserving the original aspect
+        /// ratio
         Stretch,
     }
 
@@ -94,6 +110,9 @@ pub mod client {
     pub use super::server::{Resize, ResizeOption};
 
     #[derive(clap::Parser)]
+    #[command(name = "pwww")]
+    #[command(version = "0.1.0")]
+    #[command(about = "CLI controller of pwwwd")]
     pub struct Args {
         #[command(subcommand)]
         pub subcommand: ClientSubcommand,
@@ -102,32 +121,41 @@ pub mod client {
     #[derive(clap::Subcommand)]
     pub enum ClientSubcommand {
         #[command(name = "img")]
+        /// Send a new image path for pwwwd to display
         SwitchImage {
+            /// The path of the new image
             #[arg(value_parser = super::canonicalize_path)]
             image: PathBuf,
 
+            /// How to resize the image
             #[command(flatten)]
             resize: Resize,
 
+            /// Set the type of transition
             #[command(flatten)]
             transition: Transition,
 
+            /// Set the options of transition
             #[command(flatten)]
             transition_options: TransitionOptions,
 
+            /// Set the options for easing function of transition
             #[command(flatten)]
             ease: Ease,
         },
 
+        /// Kill pwwwd daemon
         Kill,
     }
 
     #[derive(clap::Args)]
     #[group(required = false, multiple = false)]
     pub struct Transition {
+        /// Switch to the new image immediately
         #[arg(long)]
         pub no_transition: bool,
 
+        /// Set the type of transition
         #[arg(long)]
         pub transition: Option<TransitionKind>,
     }
@@ -136,20 +164,27 @@ pub mod client {
         Copy, Clone, clap::ValueEnum, serde::Serialize, serde::Deserialize, Debug, PartialEq, Eq,
     )]
     pub enum TransitionKind {
+        /// Switch to the new image immediately
         No,
+        /// Fade into the new image
         Xfd,
+        /// Make transition happen from one side of the screen. Can be controlled by `--wipe-angle
+        /// <ANGLE>`
         Wipe,
     }
 
     #[derive(clap::Args)]
     #[group(required = false, multiple = false)]
     pub struct Ease {
+        /// Use linear easing function
         #[arg(long)]
         pub no_ease: bool,
 
+        /// Set the type of builtin easing function
         #[arg(long)]
         pub ease: Option<EaseKind>,
 
+        /// Cubic bezier curve to use for easing function
         #[arg(long, value_parser = parse_cubic_bezier_control_points)]
         pub cubic_curve: Option<(f64, f64, f64, f64)>,
     }
@@ -181,6 +216,7 @@ pub mod client {
 
     #[derive(Copy, Clone, clap::ValueEnum, serde::Serialize, serde::Deserialize, Debug)]
     pub enum EaseKind {
+        /// Default
         No,
 
         #[value(skip)]
@@ -215,15 +251,19 @@ pub mod client {
 
     #[derive(Copy, Clone, clap::Args, serde::Serialize, serde::Deserialize, Debug)]
     pub struct TransitionOptions {
+        /// How long the transition will take in seconds. Default: 3
         #[arg(long, name = "transition-duration")]
         pub duration: Option<f64>,
 
+        /// Frame rate for the transition. Default: 30
         #[arg(long, name = "transition-fps")]
         pub fps: Option<f64>,
 
+        /// Whether the transition can be interrupted by a new transition. Default: false
         #[arg(long, name = "no-interrupt")]
         pub no_interrupt: bool,
 
+        /// Wipe angle. Default: 0.0
         #[arg(long, name = "wipe-angle")]
         pub wipe_angle: Option<f64>,
     }
