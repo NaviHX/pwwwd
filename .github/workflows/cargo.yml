@@ -1,0 +1,39 @@
+name: Cargo Lint, Build & Test
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - '**.rs'
+      - '**Cargo.toml'
+  pull_request:
+    paths:
+      - '**.rs'
+      - '**Cargo.toml'
+
+env:
+  CARGO_TERM_COLOR: always
+  SCCACHE_GHA_ENABLED: "true"
+  RUSTC_WRAPPER: "sccache"
+
+jobs:
+  build_and_test:
+    name: Rust project - latest
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        toolchain:
+          - stable
+    steps:
+      - uses: actions/checkout@v5
+      - uses: mozilla-actions/sccache-action@0.0.9
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: ${{ matrix.toolchain }}
+          components: clippy, rustfmt
+      - run: cargo fmt --check
+      - run: cargo clippy --all-targets --all-features --  -D warnings
+      - run: cargo build --verbose
+      - run: cargo test --all-features --verbose
+
