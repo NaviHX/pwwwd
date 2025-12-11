@@ -2,6 +2,12 @@
 name = "pwwwd"
 version = "0.1.0"
 edition = "2024"
+"rust-version" = "1.88.0"
+authors = ["Navi Hex"]
+description = "Phillips's wgpu-based Wayland wallpaper daemon"
+repository = "https://github.com/NaviHX/pwwwd"
+license = "MIT"
+keywords = ["graphics", "wayland", "wallpaper"]
 
 [workspace]
 members = [
