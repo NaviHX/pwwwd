@@ -28,7 +28,7 @@ pwwwd is a wallpaper daemon for Wayland compositors, implemented in Rust and usi
 ## Dependencies
 
 - A wayland compositor that supports `wlr-layer-shell` protocol.
-- (If you want build pwwwd from source) a valid `rust` installation.
+- (If you want build pwwwd from source) a valid `rust` installation. MSRV = 1.88
 
 ## Usage
 
