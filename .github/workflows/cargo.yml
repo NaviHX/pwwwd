@@ -27,7 +27,7 @@ jobs:
           - stable
     steps:
       - uses: actions/checkout@v5
-      - uses: mozilla-actions/sccache-action@0.0.9
+      - uses: mozilla-actions/sccache-action@v0.0.9
       - uses: dtolnay/rust-toolchain@stable
         with:
           toolchain: ${{ matrix.toolchain }}
