@@ -32,7 +32,7 @@ jobs:
         with:
           toolchain: ${{ matrix.toolchain }}
           components: clippy, rustfmt
-      - run: sudo apt install -y libwayland-dev wayland-protocols
+      - run: sudo apt install -y libwayland-dev wayland-protocols libxkbcommon-dev
       - run: cargo fmt --check
       - run: cargo clippy --all-targets --all-features --  -D warnings
       - run: cargo build --verbose
