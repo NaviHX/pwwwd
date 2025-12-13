@@ -9,6 +9,10 @@ repository = "https://github.com/NaviHX/pwwwd"
 license = "MIT"
 keywords = ["graphics", "wayland", "wallpaper"]
 
+[profile.release]
+strip = true
+lto = true
+
 [workspace]
 members = [
     "client",

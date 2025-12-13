@@ -1,0 +1,44 @@
+name: Create Release
+
+on:
+  push:
+    tags:
+      - 'v*.*.*'
+
+permissions:
+  contents: write
+
+jobs:
+  build_and_release:
+    name: Create a release for rust project
+    runs-on: ubuntu-latest
+
+    steps:
+      # Checkout and install dependencies
+      - uses: actions/checkout@v5
+      - uses: mozilla-actions/sccache-action@v0.0.9
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: stable
+      - run: sudo apt install -y libwayland-dev wayland-protocols libxkbcommon-dev
+
+      - name: Build pwwwd
+        run: cargo build --release
+
+      - name: Build pwww
+        run: cargo build --release --package pwww
+
+      - name: Prepare artifacts
+        run: |
+          mkdir dist
+          cp target/release/pwwwd dist/pwwwd
+          cp target/release/pwww dist/pwww
+
+      - name: Create Github release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            dist/pwwwd
+            dist/pwww
+          draft: true
+          token: ${{ secrets.GITHUB_TOKEN }}
