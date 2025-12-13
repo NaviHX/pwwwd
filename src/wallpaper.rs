@@ -42,7 +42,6 @@ use crate::{
     ease,
     server::TaskHandle,
     wallpaper::{
-        shaders::transition::TransitionPass,
         transition_state::{TransitionRenderError, TransitionState},
         vertex::NUM_INDEX,
     },
@@ -92,16 +91,19 @@ impl WallpaperBuilder {
         }
     }
 
+    #[allow(unused)]
     pub fn with_mag_filter_mode(mut self, filter: wgpu::FilterMode) -> Self {
         self.mag_filter = Some(filter);
         self
     }
 
+    #[allow(unused)]
     pub fn with_min_filter_mode(mut self, filter: wgpu::FilterMode) -> Self {
         self.min_filter = Some(filter);
         self
     }
 
+    #[allow(unused)]
     pub fn with_mipmap_filter_mode(mut self, filter: wgpu::FilterMode) -> Self {
         self.mipmap_filter = Some(filter);
         self
@@ -335,8 +337,10 @@ pub struct Wallpaper {
     // Wayland event handlers,
     registry_state: RegistryState,
     output_state: OutputState,
+    #[allow(unused)]
     compositor_state: CompositorState,
     shm_state: Shm,
+    #[allow(unused)]
     layer_shell_state: LayerShell,
 
     // Image
@@ -397,15 +401,7 @@ impl Wallpaper {
                 .device
                 .create_command_encoder(&wgpu::CommandEncoderDescriptor::default());
 
-            let now = std::time::Instant::now();
-
-            let finished = match transition_state.render_pass(
-                &self.device,
-                &mut encoder,
-                now,
-                &view,
-                self.fill_color,
-            ) {
+            let finished = match self.draw_transition(&mut transition_state, &mut encoder, &view) {
                 Ok(_) => false,
                 Err(e) => match e {
                     TransitionRenderError::SameFrame => false,
@@ -424,7 +420,7 @@ impl Wallpaper {
 
             self.damaged = true;
             let surface = self.layer_surface.wl_surface().clone();
-            self.layer_surface.wl_surface().frame(&qh, surface);
+            self.layer_surface.wl_surface().frame(qh, surface);
 
             debug!("Damaging the whole surface ...");
             let width = self.config.width as i32;
@@ -534,7 +530,7 @@ impl Wallpaper {
         };
 
         // If the new image is loaded, try to write the image path into the state file.
-        Self::save_image_path_to_restore_file(&image_path).await;
+        Self::save_image_path_to_restore_file(image_path).await;
 
         // Set the new texture;
         debug!("Set new texture for wallpaper ...");
@@ -584,6 +580,7 @@ impl Wallpaper {
     /// changing the image, the following transition will be canceled and the final frame will be
     /// drawn immediately.
     #[tracing::instrument(skip(self, task_handle))]
+    #[allow(clippy::too_many_arguments)]
     pub async fn start_transition(
         &mut self,
         qh: &QueueHandle<Self>,
@@ -700,7 +697,7 @@ impl Wallpaper {
             },
         );
 
-        if let Some(_) = self.transition.replace(transition) {
+        if self.transition.replace(transition).is_some() {
             // Anyway, if `TaskHub` functions correctly or the old transition is taken by this
             // function already, we won't find unfinished transitions here.
             error!(

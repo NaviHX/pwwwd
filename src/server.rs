@@ -1,4 +1,3 @@
-use common::ipc;
 use std::{
     io,
     path::{Path, PathBuf},
@@ -108,7 +107,7 @@ impl TaskHandle {
                 #[cfg(not(feature = "panic-double-toggle-busy"))]
                 error!(ERR_TOGGLE_BUSY);
                 #[cfg(feature = "panic-double-toggle-busy")]
-                panic!(ERR_TOGGLE_BUSY);
+                panic!("{}", ERR_TOGGLE_BUSY);
             }
         }
     }
@@ -138,9 +137,10 @@ impl TaskHub {
     }
 
     fn create_handle(&self) -> Result<TaskHandle, TaskHubError> {
-        if let Err(_) =
-            self.busy_flag
-                .compare_exchange(false, true, Ordering::AcqRel, Ordering::Acquire)
+        if self
+            .busy_flag
+            .compare_exchange(false, true, Ordering::AcqRel, Ordering::Acquire)
+            .is_err()
         {
             return Err(TaskHubError::Busy);
         }

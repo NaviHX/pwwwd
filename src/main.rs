@@ -13,7 +13,7 @@ use tokio::{
     signal::unix::SignalKind,
     sync::{mpsc, oneshot},
 };
-use tracing::{debug, error, info, warn};
+use tracing::{debug, error, info};
 use wayland_client::QueueHandle;
 use wayland_client::{Connection, globals::registry_queue_init};
 
@@ -64,7 +64,7 @@ async fn main() -> Result<()> {
     let task_hub = Arc::new(TaskHub::new());
     let (request_tx, mut request_rx) = mpsc::channel(REQUSET_BUFFER_SIZE);
 
-    let server_join_handle = server.run(move |socket, addr| {
+    let server_join_handle = server.run(move |socket, _addr| {
         let task_hub = task_hub.clone();
         let request_tx = request_tx.clone();
 
@@ -140,7 +140,7 @@ async fn main() -> Result<()> {
                     Some((task_handle, message, reply_tx)) => {
                         if let ipc::Message::Kill = message {
                             info!("Received a shutdown signal from client, stopping ...");
-                            if let Err(_) = reply_tx.send(ipc::Reply::Ok) {
+                            if reply_tx.send(ipc::Reply::Ok).is_err() {
                                 error!("Failed to send shutdown reply to client!");
                             }
 
@@ -235,7 +235,7 @@ async fn process_message(
                     .unwrap_or(server_cli::DEFAULT_TRANSITION_FPS);
                 wallpaper
                     .start_transition(
-                        &qh,
+                        qh,
                         &image_path,
                         resize_option,
                         duration,
@@ -288,7 +288,7 @@ async fn wait_shutdown_sig() -> Result<oneshot::Receiver<()>> {
             _ = sigquit.recv() => {},
         };
 
-        if let Err(_) = sig_tx.send(()) {
+        if sig_tx.send(()).is_err() {
             error!("Failed to send stopping message from signal hooks!");
         }
     });

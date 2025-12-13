@@ -1,6 +1,5 @@
 use common::cli::server as server_cli;
 use std::mem;
-use wgpu;
 
 #[repr(C)]
 #[derive(Copy, Clone, bytemuck::Pod, bytemuck::Zeroable)]

@@ -5,6 +5,7 @@ use crate::wallpaper::{
 };
 use wgpu::{self, util::DeviceExt};
 
+#[allow(unused)]
 pub struct Xfd {
     // Textures and samplers
     old_texture_view: wgpu::TextureView,
@@ -48,7 +49,7 @@ impl Xfd {
             )),
         );
         let bind_group = bind_group::texture_and_sampler::bind_group_with_two_textures(
-            &device,
+            device,
             Some("Xfd bind group"),
             &layout,
             &old_texture_view,
@@ -71,13 +72,13 @@ impl Xfd {
         let vertex_buffer = vertex::STRETCH_VERTICES;
         let vertex_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
             label: Some("Xfd vertex buffer"),
-            contents: bytemuck::cast_slice(&vertex_buffer),
+            contents: bytemuck::cast_slice(vertex_buffer),
             usage: wgpu::BufferUsages::COPY_DST | wgpu::BufferUsages::VERTEX,
         });
         let index_buffer = vertex::CCW_INDICES;
         let index_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
             label: Some("Xfd vertex buffer"),
-            contents: bytemuck::cast_slice(&index_buffer),
+            contents: bytemuck::cast_slice(index_buffer),
             usage: wgpu::BufferUsages::COPY_DST | wgpu::BufferUsages::INDEX,
         });
 
@@ -89,7 +90,7 @@ impl Xfd {
             &[&layout, &progress_bind_group_layout],
             &shader,
             Some("vs_main"),
-            &shaders::wallpaper::BUFFERS,
+            shaders::wallpaper::BUFFERS,
             Some("fs_main"),
             &shaders::target(target_format),
         );
