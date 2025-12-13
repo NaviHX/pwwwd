@@ -107,7 +107,7 @@ impl TaskHandle {
                 #[cfg(not(feature = "panic-double-toggle-busy"))]
                 error!(ERR_TOGGLE_BUSY);
                 #[cfg(feature = "panic-double-toggle-busy")]
-                panic!(ERR_TOGGLE_BUSY);
+                panic!("{}", ERR_TOGGLE_BUSY);
             }
         }
     }
