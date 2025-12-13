@@ -401,11 +401,7 @@ impl Wallpaper {
                 .device
                 .create_command_encoder(&wgpu::CommandEncoderDescriptor::default());
 
-            let finished = match self.draw_transition(
-                &mut transition_state,
-                &mut encoder,
-                &view,
-            ) {
+            let finished = match self.draw_transition(&mut transition_state, &mut encoder, &view) {
                 Ok(_) => false,
                 Err(e) => match e {
                     TransitionRenderError::SameFrame => false,
