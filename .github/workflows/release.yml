@@ -9,36 +9,49 @@ permissions:
   contents: write
 
 jobs:
-  build_and_release:
-    name: Create a release for rust project
+  create_release:
+    name: Create release
     runs-on: ubuntu-latest
+    steps:
+      - name: Create Github release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ github.ref_name }}
+          draft: true
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+  build_and_upload:
+    needs: create_release
+    name: Create and upload artifacts for pwwwd
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        target_triplet:
+          - x86_64-unknown-linux-gnu
+          - aarch64-unknown-linux-gnu
 
     steps:
-      # Checkout and install dependencies
       - uses: actions/checkout@v5
       - uses: mozilla-actions/sccache-action@v0.0.9
       - uses: dtolnay/rust-toolchain@stable
         with:
           toolchain: stable
-      - run: sudo apt install -y libwayland-dev wayland-protocols libxkbcommon-dev
+      - uses: taiki-e/install-action@cross
 
-      - name: Build pwwwd
-        run: cargo build --release
-
-      - name: Build pwww
-        run: cargo build --release --package pwww
+      - name: Build
+        run: cross build --release --target ${{ matrix.target_triplet }}
 
       - name: Prepare artifacts
         run: |
-          mkdir dist
-          cp target/release/pwwwd dist/pwwwd
-          cp target/release/pwww dist/pwww
+          mkdir -p dist
+          cp target/${{ matrix.target_triplet }}/release/pwwwd dist/pwwwd-${{ github.ref_name }}-${{ matrix.target_triplet }}
+          cp target/${{ matrix.target_triplet }}/release/pwww dist/pwww-${{ github.ref_name }}-${{ matrix.target_triplet }}
 
-      - name: Create Github release
+      - name: Upload artifacts
         uses: softprops/action-gh-release@v2
         with:
+          tag_name: ${{ github.ref_name }}
           files: |
-            dist/pwwwd
-            dist/pwww
-          draft: true
+            dist/pwwwd-${{ github.ref_name }}-${{ matrix.target_triplet }}
+            dist/pwww-${{ github.ref_name }}-${{ matrix.target_triplet }}
           token: ${{ secrets.GITHUB_TOKEN }}
