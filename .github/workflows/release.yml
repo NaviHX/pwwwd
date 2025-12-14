@@ -39,7 +39,9 @@ jobs:
       - uses: taiki-e/install-action@cross
 
       - name: Build
-        run: cross build --release --target ${{ matrix.target_triplet }}
+        run: |
+          cross build --release --target ${{ matrix.target_triplet }}
+          cross build --release --target ${{ matrix.target_triplet }} -p pwww
 
       - name: Prepare artifacts
         run: |
