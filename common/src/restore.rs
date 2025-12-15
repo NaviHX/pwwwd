@@ -1,6 +1,6 @@
 use crate::cli::server::ResizeOption;
 use anyhow::{Result, anyhow};
-use rmp_serde::Deserializer;
+use rmp_serde::{Deserializer, Serializer};
 use serde::{Deserialize, Serialize};
 use std::path::{Path, PathBuf};
 
@@ -28,5 +28,11 @@ impl Restore {
         let res = Restore::deserialize(&mut Deserializer::from_read_ref(&buf))
             .map_err(|e| anyhow!("Cannot deserialize `Restore`: {e}"))?;
         Ok(res)
+    }
+
+    pub fn serialize_to_buf(&self, buf: &mut [u8]) -> Result<()> {
+        self.serialize(&mut Serializer::new(buf))
+            .map_err(|e| anyhow!("Cannot serialize `Restore`: {e}"))?;
+        Ok(())
     }
 }

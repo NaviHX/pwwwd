@@ -10,9 +10,12 @@ mod transition_state;
 mod vertex;
 
 use anyhow::{Result, anyhow};
-use common::cli::{
-    client::{EaseKind, TransitionKind, TransitionOptions},
-    server as server_cli,
+use common::{
+    cli::{
+        client::{EaseKind, TransitionKind, TransitionOptions},
+        server as server_cli,
+    },
+    restore::Restore,
 };
 use config::Configurable;
 use off_screen::OffScreen;
@@ -30,10 +33,7 @@ use smithay_client_toolkit::{
     },
     shm::{Shm, ShmHandler},
 };
-use std::{
-    os::unix::ffi::OsStrExt,
-    path::{Path, PathBuf},
-};
+use std::path::{Path, PathBuf};
 use tracing::{debug, error, warn};
 use wayland_client::{Connection, QueueHandle, globals::GlobalList};
 use wgpu::{self, util::DeviceExt};
@@ -227,7 +227,8 @@ impl WallpaperBuilder {
         };
 
         // After loading the image, try to save the path into state file.
-        Wallpaper::save_image_path_to_restore_file(&load_wallpaper).await;
+        Wallpaper::save_image_path_to_restore_file(&load_wallpaper, resize_option, fill_color)
+            .await;
 
         debug!("Trying to create a sampler ...");
         let sampler = device.create_sampler(&sampler::desc(
@@ -530,7 +531,7 @@ impl Wallpaper {
         };
 
         // If the new image is loaded, try to write the image path into the state file.
-        Self::save_image_path_to_restore_file(image_path).await;
+        Self::save_image_path_to_restore_file(image_path, resize_option, self.fill_color).await;
 
         // Set the new texture;
         debug!("Set new texture for wallpaper ...");
@@ -719,13 +720,24 @@ impl Wallpaper {
     }
 
     #[tracing::instrument]
-    async fn save_image_path_to_restore_file(path: &Path) {
+    async fn save_image_path_to_restore_file(
+        path: &Path,
+        resize_option: server_cli::ResizeOption,
+        fill_rgb: (f64, f64, f64),
+    ) {
         match server_cli::default_restore_path() {
             Err(e) => error!("Failed to get restore file path: {e}"),
             Ok(restore_file_path) => {
-                if let Err(e) =
-                    tokio::fs::write(restore_file_path, path.as_os_str().as_bytes()).await
-                {
+                let rgb = (fill_rgb.0 as u8, fill_rgb.1 as u8, fill_rgb.2 as u8);
+                let restore = Restore::new(path, resize_option, rgb);
+
+                let mut buf = vec![];
+                if let Err(e) = restore.serialize_to_buf(&mut buf) {
+                    error!("Failed to deserialize restore option: {e}");
+                    return;
+                }
+
+                if let Err(e) = tokio::fs::write(restore_file_path, &buf).await {
                     error!("Failed to write image path to restore file: {e}");
                 }
             }
