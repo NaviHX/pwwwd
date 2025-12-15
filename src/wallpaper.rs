@@ -492,6 +492,7 @@ impl Wallpaper {
         qh: &QueueHandle<Self>,
         image_path: &Path,
         resize_option: server_cli::ResizeOption,
+        fill_rgb: (f64, f64, f64),
     ) -> Result<()> {
         // Load the new image.
         debug!("Trying to load the new image: {image_path:?}");
@@ -529,6 +530,9 @@ impl Wallpaper {
 
             texture
         };
+
+        // Set new fill color
+        self.fill_color = fill_rgb;
 
         // If the new image is loaded, try to write the image path into the state file.
         Self::save_image_path_to_restore_file(image_path, resize_option, self.fill_color).await;
@@ -587,6 +591,7 @@ impl Wallpaper {
         qh: &QueueHandle<Self>,
         img_path: &Path,
         resize_option: server_cli::ResizeOption,
+        fill_rgb: (f64, f64, f64),
         duration: f64,
         fps: f64,
         transition_kind: TransitionKind,
@@ -632,7 +637,7 @@ impl Wallpaper {
 
         debug!("Loading the new image: {img_path:?}");
         if let Err(e) = self
-            .change_image_and_request_frame(qh, img_path, resize_option)
+            .change_image_and_request_frame(qh, img_path, resize_option, fill_rgb)
             .await
         {
             error!("Failed to load the new image to create transition! : {e}");

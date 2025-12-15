@@ -5,7 +5,7 @@ mod wallpaper;
 use anyhow::{Result, anyhow};
 use clap::{CommandFactory, Parser};
 use common::cli::{client::TransitionKind, server as server_cli};
-use common::ipc;
+use common::ipc::{self, ImageArgs};
 use common::restore::Restore;
 use std::sync::Arc;
 use tokio::{
@@ -240,16 +240,22 @@ async fn process_message(
             ipc::Reply::Ok
         }
         ipc::Message::Image { args } => {
-            let image_path = args.path;
-            let resize_option = args.resize;
-            let transition_kind = args.transition;
-            let transition_options = args.transition_options;
-            let ease = args.ease;
+            let ImageArgs {
+                path,
+                resize,
+                transition,
+                transition_options,
+                ease,
+                fill_rgb,
+            } = args;
 
-            if transition_kind != TransitionKind::No {
-                info!("Starting transition: {image_path:?} ...");
-                info!("Resize option: {resize_option:?}");
-                info!("TransitionKind: {transition_kind:?}");
+            let fill_rgb = (fill_rgb.0 as f64, fill_rgb.1 as f64, fill_rgb.2 as f64);
+
+            if transition != TransitionKind::No {
+                info!("Starting transition: {path:?} ...");
+                info!("Fill color: {fill_rgb:?}");
+                info!("Resize option: {resize:?}");
+                info!("TransitionKind: {transition:?}");
                 info!("EaseKind: {ease:?}");
 
                 let duration = transition_options
@@ -261,11 +267,12 @@ async fn process_message(
                 wallpaper
                     .start_transition(
                         qh,
-                        &image_path,
-                        resize_option,
+                        &path,
+                        resize,
+                        fill_rgb,
                         duration,
                         fps,
-                        transition_kind,
+                        transition,
                         transition_options,
                         ease,
                         task_handle,
@@ -274,10 +281,10 @@ async fn process_message(
 
                 ipc::Reply::Ok
             } else {
-                info!("Start immediate wallpaper switching: {image_path:?} ...");
-                info!("Resize option: {resize_option:?}");
+                info!("Start immediate wallpaper switching: {path:?} ...");
+                info!("Resize option: {resize:?}");
                 let result = wallpaper
-                    .change_image_and_request_frame(qh, &image_path, resize_option)
+                    .change_image_and_request_frame(qh, &path, resize, fill_rgb)
                     .await;
 
                 ipc::Reply::from_result(result)
