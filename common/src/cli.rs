@@ -1,9 +1,12 @@
+pub use clap_complete;
+
 fn canonicalize_path(s: &str) -> Result<std::path::PathBuf, String> {
     std::fs::canonicalize(s).map_err(|e| format!("{}: {}", s, e))
 }
 
 pub mod server {
     use anyhow::{Result, anyhow};
+    use clap_complete::Shell;
     use directories::BaseDirs;
     use std::path::PathBuf;
 
@@ -14,7 +17,7 @@ pub mod server {
     pub struct Args {
         /// Which image to load as the first wallpaper since startup
         #[command(subcommand)]
-        pub load: Load,
+        pub subcommand: ServerSubcommand,
 
         /// How to resize the image
         #[command(flatten)]
@@ -26,7 +29,7 @@ pub mod server {
     }
 
     #[derive(clap::Subcommand)]
-    pub enum Load {
+    pub enum ServerSubcommand {
         /// Load image from specified path
         #[command(name = "load")]
         FromPath {
@@ -35,6 +38,12 @@ pub mod server {
         },
         /// Restore last used image
         Restore,
+
+        /// Generate shell completion
+        Completion {
+            #[arg()]
+            shell: Shell,
+        },
     }
 
     /// Get the restore file path. Create parent directory if it doesn't exist.
@@ -105,6 +114,7 @@ pub mod server {
 
 pub mod client {
     use anyhow::{Result, anyhow};
+    use clap_complete::Shell;
     use std::path::PathBuf;
 
     pub use super::server::{Resize, ResizeOption};
@@ -146,6 +156,12 @@ pub mod client {
 
         /// Kill pwwwd daemon
         Kill,
+
+        /// Generate shell completion
+        Completion {
+            #[arg()]
+            shell: Shell,
+        },
     }
 
     #[derive(clap::Args)]
