@@ -74,6 +74,9 @@ impl Message {
                 }
             }
             ClientSubcommand::Kill => Self::Kill,
+            ClientSubcommand::Completion { shell: _ } => {
+                panic!("`Completion` is not a valid message to be sent")
+            }
         }
     }
 

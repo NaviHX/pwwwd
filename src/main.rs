@@ -3,7 +3,7 @@ mod server;
 mod wallpaper;
 
 use anyhow::{Result, anyhow};
-use clap::Parser;
+use clap::{CommandFactory, Parser};
 use common::cli::{client::TransitionKind, server as server_cli};
 use common::ipc;
 use std::sync::Arc;
@@ -31,12 +31,23 @@ async fn main() -> Result<()> {
     let args = server_cli::Args::parse();
     let mut builder = wallpaper::WallpaperBuilder::new();
 
-    let image_path = match args.load {
-        server_cli::Load::FromPath { path } => path,
-        server_cli::Load::Restore => {
+    if let server_cli::ServerSubcommand::Completion { shell } = args.subcommand {
+        let mut command = server_cli::Args::command();
+        let name = command.get_name().to_string();
+        common::cli::clap_complete::generate(shell, &mut command, name, &mut std::io::stdout());
+
+        return Ok(());
+    }
+
+    let image_path = match args.subcommand {
+        server_cli::ServerSubcommand::FromPath { path } => path,
+        server_cli::ServerSubcommand::Restore => {
             let restore_path = server_cli::default_restore_path()?;
             let path = tokio::fs::read_to_string(restore_path).await?;
             tokio::fs::canonicalize(path).await?
+        }
+        server_cli::ServerSubcommand::Completion { shell: _ } => {
+            panic!("`completion` is not a valid subcommand");
         }
     };
     builder = builder.with_img_path(image_path);
