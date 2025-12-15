@@ -6,6 +6,7 @@ use anyhow::{Result, anyhow};
 use clap::{CommandFactory, Parser};
 use common::cli::{client::TransitionKind, server as server_cli};
 use common::ipc;
+use common::restore::Restore;
 use std::sync::Arc;
 use tokio::{
     net::UnixStream,
@@ -39,24 +40,32 @@ async fn main() -> Result<()> {
         return Ok(());
     }
 
-    let image_path = match args.subcommand {
-        server_cli::ServerSubcommand::FromPath { path } => path,
+    let (image_path, resize) = match args.subcommand {
+        server_cli::ServerSubcommand::FromPath { path, resize } => {
+            let resize = if resize.no_resize {
+                server_cli::ResizeOption::No
+            } else {
+                resize.resize.unwrap_or(server_cli::DEFAULT_RESIZE)
+            };
+
+            (path, resize)
+        }
         server_cli::ServerSubcommand::Restore => {
             let restore_path = server_cli::default_restore_path()?;
-            let path = tokio::fs::read_to_string(restore_path).await?;
-            tokio::fs::canonicalize(path).await?
+            let content = tokio::fs::read(restore_path).await?;
+            let Restore {
+                file_path,
+                resize_option,
+            } = Restore::deserialize_from_buf(&content)?;
+
+            (file_path, resize_option)
         }
         server_cli::ServerSubcommand::Completion { shell: _ } => {
             panic!("`completion` is not a valid subcommand");
         }
     };
-    builder = builder.with_img_path(image_path);
 
-    let resize = if args.resize.no_resize {
-        server_cli::ResizeOption::No
-    } else {
-        args.resize.resize.unwrap_or(server_cli::DEFAULT_RESIZE)
-    };
+    builder = builder.with_img_path(image_path);
     builder = builder.with_resize_option(resize);
 
     let rgb_u8 = args.fill_rgb.unwrap_or(server_cli::RGB);

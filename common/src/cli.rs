@@ -19,10 +19,6 @@ pub mod server {
         #[command(subcommand)]
         pub subcommand: ServerSubcommand,
 
-        /// How to resize the image
-        #[command(flatten)]
-        pub resize: Resize,
-
         /// Which color to fill the padding with when loaded image does not fill the screen
         #[arg(long ,short, value_parser = parse_rgb)]
         pub fill_rgb: Option<(u8, u8, u8)>,
@@ -35,6 +31,11 @@ pub mod server {
         FromPath {
             #[arg(value_parser = super::canonicalize_path)]
             path: PathBuf,
+
+            /// How to resize the image
+            #[command(flatten)]
+            resize: Resize,
+
         },
         /// Restore last used image
         Restore,
