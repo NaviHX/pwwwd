@@ -40,15 +40,19 @@ async fn main() -> Result<()> {
         return Ok(());
     }
 
-    let (image_path, resize) = match args.subcommand {
-        server_cli::ServerSubcommand::FromPath { path, resize } => {
+    let (image_path, resize, fill_rgb) = match args.subcommand {
+        server_cli::ServerSubcommand::FromPath {
+            path,
+            resize,
+            fill_rgb,
+        } => {
             let resize = if resize.no_resize {
                 server_cli::ResizeOption::No
             } else {
                 resize.resize.unwrap_or(server_cli::DEFAULT_RESIZE)
             };
 
-            (path, resize)
+            (path, resize, fill_rgb.unwrap_or(server_cli::RGB))
         }
         server_cli::ServerSubcommand::Restore => {
             let restore_path = server_cli::default_restore_path()?;
@@ -56,9 +60,10 @@ async fn main() -> Result<()> {
             let Restore {
                 file_path,
                 resize_option,
+                fill_rgb,
             } = Restore::deserialize_from_buf(&content)?;
 
-            (file_path, resize_option)
+            (file_path, resize_option, fill_rgb)
         }
         server_cli::ServerSubcommand::Completion { shell: _ } => {
             panic!("`completion` is not a valid subcommand");
@@ -68,7 +73,7 @@ async fn main() -> Result<()> {
     builder = builder.with_img_path(image_path);
     builder = builder.with_resize_option(resize);
 
-    let rgb_u8 = args.fill_rgb.unwrap_or(server_cli::RGB);
+    let rgb_u8 = fill_rgb;
     let rgb_f64 = rgb_u8_to_f64(rgb_u8);
     builder = builder.with_fill_color(rgb_f64);
 

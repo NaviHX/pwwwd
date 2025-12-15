@@ -8,13 +8,19 @@ use std::path::{Path, PathBuf};
 pub struct Restore {
     pub file_path: PathBuf,
     pub resize_option: ResizeOption,
+    pub fill_rgb: (u8, u8, u8),
 }
 
 impl Restore {
-    pub fn new(path: impl AsRef<Path>, resize_option: ResizeOption) -> Self {
+    pub fn new(
+        path: impl AsRef<Path>,
+        resize_option: ResizeOption,
+        fill_rgb: (u8, u8, u8),
+    ) -> Self {
         Restore {
             file_path: path.as_ref().to_owned(),
             resize_option,
+            fill_rgb,
         }
     }
 

@@ -18,10 +18,6 @@ pub mod server {
         /// Which image to load as the first wallpaper since startup
         #[command(subcommand)]
         pub subcommand: ServerSubcommand,
-
-        /// Which color to fill the padding with when loaded image does not fill the screen
-        #[arg(long ,short, value_parser = parse_rgb)]
-        pub fill_rgb: Option<(u8, u8, u8)>,
     }
 
     #[derive(clap::Subcommand)]
@@ -36,6 +32,9 @@ pub mod server {
             #[command(flatten)]
             resize: Resize,
 
+            /// Which color to fill the padding with when loaded image does not fill the screen
+            #[arg(long ,short, value_parser = parse_rgb)]
+            fill_rgb: Option<(u8, u8, u8)>,
         },
         /// Restore last used image
         Restore,
