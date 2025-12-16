@@ -16,6 +16,7 @@ use common::{
         server as server_cli,
     },
     restore::Restore,
+    utils,
 };
 use config::Configurable;
 use off_screen::OffScreen;
@@ -733,7 +734,7 @@ impl Wallpaper {
         match server_cli::default_restore_path() {
             Err(e) => error!("Failed to get restore file path: {e}"),
             Ok(restore_file_path) => {
-                let rgb = (fill_rgb.0 as u8, fill_rgb.1 as u8, fill_rgb.2 as u8);
+                let rgb = utils::rgb_f64_to_u8(fill_rgb);
                 let restore = Restore::new(path, resize_option, rgb);
 
                 let mut buf = vec![];

@@ -7,6 +7,7 @@ use clap::{CommandFactory, Parser};
 use common::cli::{client::TransitionKind, server as server_cli};
 use common::ipc::{self, ImageArgs};
 use common::restore::Restore;
+use common::utils;
 use std::sync::Arc;
 use tokio::{
     net::UnixStream,
@@ -74,7 +75,7 @@ async fn main() -> Result<()> {
     builder = builder.with_resize_option(resize);
 
     let rgb_u8 = fill_rgb;
-    let rgb_f64 = rgb_u8_to_f64(rgb_u8);
+    let rgb_f64 = utils::rgb_u8_to_f64(rgb_u8);
     builder = builder.with_fill_color(rgb_f64);
 
     let conn = Connection::connect_to_env()?;
@@ -200,10 +201,6 @@ async fn main() -> Result<()> {
     info!("Exiting");
 
     Ok(())
-}
-
-fn rgb_u8_to_f64((r, g, b): (u8, u8, u8)) -> (f64, f64, f64) {
-    (r as f64 / 255., g as f64 / 255., b as f64 / 255.)
 }
 
 async fn process_connection(
