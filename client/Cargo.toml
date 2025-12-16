@@ -1,6 +1,6 @@
 [package]
 name = "pwww"
-version = "0.1.1"
+version = "0.2.0"
 edition = "2024"
 
 [profile.release]
@@ -10,6 +10,6 @@ lto = true
 [dependencies]
 anyhow = "1.0.100"
 clap = "4.5.53"
-common = { version = "0.1.0", path = "../common" }
+common = { path = "../common" }
 tracing = "0.1.41"
 tracing-subscriber = "0.3.20"

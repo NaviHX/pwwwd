@@ -1,9 +1,25 @@
+use anyhow::{Result, anyhow};
+pub use clap_complete;
+
 fn canonicalize_path(s: &str) -> Result<std::path::PathBuf, String> {
     std::fs::canonicalize(s).map_err(|e| format!("{}: {}", s, e))
 }
 
+fn parse_rgb(s: &str) -> Result<(u8, u8, u8)> {
+    if s.len() != 6 {
+        return Err(anyhow!("RGBA must have 8 hex chars"));
+    }
+
+    let r = u8::from_str_radix(&s[0..2], 16)?;
+    let g = u8::from_str_radix(&s[2..4], 16)?;
+    let b = u8::from_str_radix(&s[4..6], 16)?;
+    Ok((r, g, b))
+}
+
 pub mod server {
+    use crate::cli::parse_rgb;
     use anyhow::{Result, anyhow};
+    use clap_complete::Shell;
     use directories::BaseDirs;
     use std::path::PathBuf;
 
@@ -14,27 +30,33 @@ pub mod server {
     pub struct Args {
         /// Which image to load as the first wallpaper since startup
         #[command(subcommand)]
-        pub load: Load,
-
-        /// How to resize the image
-        #[command(flatten)]
-        pub resize: Resize,
-
-        /// Which color to fill the padding with when loaded image does not fill the screen
-        #[arg(long ,short, value_parser = parse_rgb)]
-        pub fill_rgb: Option<(u8, u8, u8)>,
+        pub subcommand: ServerSubcommand,
     }
 
     #[derive(clap::Subcommand)]
-    pub enum Load {
+    pub enum ServerSubcommand {
         /// Load image from specified path
         #[command(name = "load")]
         FromPath {
             #[arg(value_parser = super::canonicalize_path)]
             path: PathBuf,
+
+            /// How to resize the image
+            #[command(flatten)]
+            resize: Resize,
+
+            /// Which color to fill the padding with when loaded image does not fill the screen
+            #[arg(long ,short, value_parser = parse_rgb)]
+            fill_rgb: Option<(u8, u8, u8)>,
         },
         /// Restore last used image
         Restore,
+
+        /// Generate shell completion
+        Completion {
+            #[arg()]
+            shell: Shell,
+        },
     }
 
     /// Get the restore file path. Create parent directory if it doesn't exist.
@@ -55,17 +77,6 @@ pub mod server {
         let restore_file = dir.join("restore-path").to_owned();
 
         Ok(restore_file)
-    }
-
-    fn parse_rgb(s: &str) -> Result<(u8, u8, u8)> {
-        if s.len() != 6 {
-            return Err(anyhow!("RGBA must have 8 hex chars"));
-        }
-
-        let r = u8::from_str_radix(&s[0..2], 16)?;
-        let g = u8::from_str_radix(&s[2..4], 16)?;
-        let b = u8::from_str_radix(&s[4..6], 16)?;
-        Ok((r, g, b))
     }
 
     pub const RGB: (u8, u8, u8) = (0x22, 0x44, 0x66);
@@ -104,7 +115,9 @@ pub mod server {
 }
 
 pub mod client {
+    use crate::cli::parse_rgb;
     use anyhow::{Result, anyhow};
+    use clap_complete::Shell;
     use std::path::PathBuf;
 
     pub use super::server::{Resize, ResizeOption};
@@ -142,10 +155,20 @@ pub mod client {
             /// Set the options for easing function of transition
             #[command(flatten)]
             ease: Ease,
+
+            /// Which color to fill the padding with when loaded image does not fill the screen
+            #[arg(long ,short, value_parser = parse_rgb)]
+            fill_rgb: Option<(u8, u8, u8)>,
         },
 
         /// Kill pwwwd daemon
         Kill,
+
+        /// Generate shell completion
+        Completion {
+            #[arg()]
+            shell: Shell,
+        },
     }
 
     #[derive(clap::Args)]

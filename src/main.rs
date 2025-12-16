@@ -3,9 +3,11 @@ mod server;
 mod wallpaper;
 
 use anyhow::{Result, anyhow};
-use clap::Parser;
+use clap::{CommandFactory, Parser};
 use common::cli::{client::TransitionKind, server as server_cli};
-use common::ipc;
+use common::ipc::{self, ImageArgs};
+use common::restore::Restore;
+use common::utils;
 use std::sync::Arc;
 use tokio::{
     net::UnixStream,
@@ -31,25 +33,49 @@ async fn main() -> Result<()> {
     let args = server_cli::Args::parse();
     let mut builder = wallpaper::WallpaperBuilder::new();
 
-    let image_path = match args.load {
-        server_cli::Load::FromPath { path } => path,
-        server_cli::Load::Restore => {
+    if let server_cli::ServerSubcommand::Completion { shell } = args.subcommand {
+        let mut command = server_cli::Args::command();
+        let name = command.get_name().to_string();
+        common::cli::clap_complete::generate(shell, &mut command, name, &mut std::io::stdout());
+
+        return Ok(());
+    }
+
+    let (image_path, resize, fill_rgb) = match args.subcommand {
+        server_cli::ServerSubcommand::FromPath {
+            path,
+            resize,
+            fill_rgb,
+        } => {
+            let resize = if resize.no_resize {
+                server_cli::ResizeOption::No
+            } else {
+                resize.resize.unwrap_or(server_cli::DEFAULT_RESIZE)
+            };
+
+            (path, resize, fill_rgb.unwrap_or(server_cli::RGB))
+        }
+        server_cli::ServerSubcommand::Restore => {
             let restore_path = server_cli::default_restore_path()?;
-            let path = tokio::fs::read_to_string(restore_path).await?;
-            tokio::fs::canonicalize(path).await?
+            let content = tokio::fs::read(restore_path).await?;
+            let Restore {
+                file_path,
+                resize_option,
+                fill_rgb,
+            } = Restore::deserialize_from(&content[..])?;
+
+            (file_path, resize_option, fill_rgb)
+        }
+        server_cli::ServerSubcommand::Completion { shell: _ } => {
+            panic!("`completion` is not a valid subcommand");
         }
     };
-    builder = builder.with_img_path(image_path);
 
-    let resize = if args.resize.no_resize {
-        server_cli::ResizeOption::No
-    } else {
-        args.resize.resize.unwrap_or(server_cli::DEFAULT_RESIZE)
-    };
+    builder = builder.with_img_path(image_path);
     builder = builder.with_resize_option(resize);
 
-    let rgb_u8 = args.fill_rgb.unwrap_or(server_cli::RGB);
-    let rgb_f64 = rgb_u8_to_f64(rgb_u8);
+    let rgb_u8 = fill_rgb;
+    let rgb_f64 = utils::rgb_u8_to_f64(rgb_u8);
     builder = builder.with_fill_color(rgb_f64);
 
     let conn = Connection::connect_to_env()?;
@@ -177,10 +203,6 @@ async fn main() -> Result<()> {
     Ok(())
 }
 
-fn rgb_u8_to_f64((r, g, b): (u8, u8, u8)) -> (f64, f64, f64) {
-    (r as f64 / 255., g as f64 / 255., b as f64 / 255.)
-}
-
 async fn process_connection(
     task_handle: TaskHandle,
     mut socket: UnixStream,
@@ -215,16 +237,22 @@ async fn process_message(
             ipc::Reply::Ok
         }
         ipc::Message::Image { args } => {
-            let image_path = args.path;
-            let resize_option = args.resize;
-            let transition_kind = args.transition;
-            let transition_options = args.transition_options;
-            let ease = args.ease;
+            let ImageArgs {
+                path,
+                resize,
+                transition,
+                transition_options,
+                ease,
+                fill_rgb,
+            } = args;
 
-            if transition_kind != TransitionKind::No {
-                info!("Starting transition: {image_path:?} ...");
-                info!("Resize option: {resize_option:?}");
-                info!("TransitionKind: {transition_kind:?}");
+            let fill_rgb = (fill_rgb.0 as f64, fill_rgb.1 as f64, fill_rgb.2 as f64);
+
+            if transition != TransitionKind::No {
+                info!("Starting transition: {path:?} ...");
+                info!("Fill color: {fill_rgb:?}");
+                info!("Resize option: {resize:?}");
+                info!("TransitionKind: {transition:?}");
                 info!("EaseKind: {ease:?}");
 
                 let duration = transition_options
@@ -236,11 +264,12 @@ async fn process_message(
                 wallpaper
                     .start_transition(
                         qh,
-                        &image_path,
-                        resize_option,
+                        &path,
+                        resize,
+                        fill_rgb,
                         duration,
                         fps,
-                        transition_kind,
+                        transition,
                         transition_options,
                         ease,
                         task_handle,
@@ -249,10 +278,10 @@ async fn process_message(
 
                 ipc::Reply::Ok
             } else {
-                info!("Start immediate wallpaper switching: {image_path:?} ...");
-                info!("Resize option: {resize_option:?}");
+                info!("Start immediate wallpaper switching: {path:?} ...");
+                info!("Resize option: {resize:?}");
                 let result = wallpaper
-                    .change_image_and_request_frame(qh, &image_path, resize_option)
+                    .change_image_and_request_frame(qh, &path, resize, fill_rgb)
                     .await;
 
                 ipc::Reply::from_result(result)
