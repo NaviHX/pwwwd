@@ -1,6 +1,6 @@
 [package]
 name = "pwwwd"
-version = "0.1.1"
+version = "0.2.0"
 edition = "2024"
 "rust-version" = "1.88.0"
 authors = ["Navi Hex"]
@@ -23,7 +23,7 @@ members = [
 anyhow = "1.0.100"
 bytemuck = { version = "1.24.0", features = ["derive"] }
 clap = "4.5.53"
-common = { version = "0.1.0", path = "common", features = ["async"] }
+common = { path = "common", features = ["async"] }
 image = "0.25.9"
 mint = "0.5.9"
 raw-window-handle = "0.6.2"

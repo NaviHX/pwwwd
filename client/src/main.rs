@@ -1,5 +1,5 @@
 use anyhow::Result;
-use clap::Parser;
+use clap::{CommandFactory, Parser};
 use common::{cli, ipc};
 use std::os::unix::net::UnixStream;
 use tracing::{debug, error, info};
@@ -7,6 +7,15 @@ use tracing::{debug, error, info};
 fn main() -> Result<()> {
     tracing_subscriber::fmt::init();
     let args = cli::client::Args::parse();
+
+    if let cli::client::ClientSubcommand::Completion { shell } = args.subcommand {
+        let mut command = cli::client::Args::command();
+        let name = command.get_name().to_string();
+        common::cli::clap_complete::generate(shell, &mut command, name, &mut std::io::stdout());
+
+        return Ok(());
+    }
+
     let message = ipc::Message::from_cli_command(args.subcommand);
 
     debug!("Message to be sent: {message:?}");
