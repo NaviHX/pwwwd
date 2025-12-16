@@ -2,7 +2,10 @@ use crate::cli::server::ResizeOption;
 use anyhow::{Result, anyhow};
 use rmp_serde::{Deserializer, Serializer};
 use serde::{Deserialize, Serialize};
-use std::path::{Path, PathBuf};
+use std::{
+    io::{Read, Write},
+    path::{Path, PathBuf},
+};
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct Restore {
@@ -24,15 +27,48 @@ impl Restore {
         }
     }
 
-    pub fn deserialize_from_buf(buf: &[u8]) -> Result<Self> {
-        let res = Restore::deserialize(&mut Deserializer::from_read_ref(&buf))
+    pub fn deserialize_from<R: Read>(reader: R) -> Result<Self> {
+        let res = Restore::deserialize(&mut Deserializer::new(reader))
             .map_err(|e| anyhow!("Cannot deserialize `Restore`: {e}"))?;
         Ok(res)
     }
 
-    pub fn serialize_to_buf(&self, buf: &mut [u8]) -> Result<()> {
-        self.serialize(&mut Serializer::new(buf))
+    pub fn serialize_to<W: Write>(&self, writer: W) -> Result<()> {
+        self.serialize(&mut Serializer::new(writer))
             .map_err(|e| anyhow!("Cannot serialize `Restore`: {e}"))?;
+        Ok(())
+    }
+
+    #[cfg(feature = "async")]
+    pub async fn async_deserialize_from<R: tokio::io::AsyncReadExt + Unpin>(
+        mut reader: R,
+    ) -> Result<Self> {
+        let mut buf = vec![];
+        reader
+            .read_to_end(&mut buf)
+            .await
+            .map_err(|e| anyhow!("Cannot async-read data to be deserialize: {e}"))?;
+
+        let res = Restore::deserialize(&mut Deserializer::from_read_ref(&buf))
+            .map_err(|e| anyhow!("Cannot deserialize `Restore`: {e}"))?;
+
+        Ok(res)
+    }
+
+    #[cfg(feature = "async")]
+    pub async fn async_serialize_to<W: tokio::io::AsyncWriteExt + Unpin>(
+        &mut self,
+        mut writer: W,
+    ) -> Result<()> {
+        let mut buf = vec![];
+        self.serialize(&mut Serializer::new(&mut buf))
+            .map_err(|e| anyhow!("Cannot serialize `Restore`: {e}"))?;
+
+        writer
+            .write_all(&buf)
+            .await
+            .map_err(|e| anyhow!("Cannot write serialized data into writer: {e}"))?;
+
         Ok(())
     }
 }
@@ -50,8 +86,8 @@ mod test {
         );
 
         let mut buf = vec![];
-        restore.serialize_to_buf(&mut buf).unwrap();
-        let new_restore = super::Restore::deserialize_from_buf(&buf).unwrap();
+        restore.serialize_to(&mut buf).unwrap();
+        let new_restore = super::Restore::deserialize_from(&buf[..]).unwrap();
 
         assert_eq!(restore.file_path, new_restore.file_path);
         assert_eq!(restore.resize_option, new_restore.resize_option);

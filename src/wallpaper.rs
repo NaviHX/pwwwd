@@ -737,7 +737,7 @@ impl Wallpaper {
                 let restore = Restore::new(path, resize_option, rgb);
 
                 let mut buf = vec![];
-                if let Err(e) = restore.serialize_to_buf(&mut buf) {
+                if let Err(e) = restore.serialize_to(&mut buf) {
                     error!("Failed to deserialize restore option: {e}");
                     return;
                 }

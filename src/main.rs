@@ -61,7 +61,7 @@ async fn main() -> Result<()> {
                 file_path,
                 resize_option,
                 fill_rgb,
-            } = Restore::deserialize_from_buf(&content)?;
+            } = Restore::deserialize_from(&content[..])?;
 
             (file_path, resize_option, fill_rgb)
         }
