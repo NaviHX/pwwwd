@@ -3,7 +3,7 @@ use crate::cli::{
         ClientSubcommand, DEFAULT_EASE_KIND, DEFAULT_TRANSITION_KIND, EaseKind, ResizeOption,
         TransitionKind, TransitionOptions,
     },
-    server::DEFAULT_RESIZE,
+    server::{DEFAULT_RESIZE, RGB},
 };
 use anyhow::{Result, anyhow};
 use rmp_serde::{Deserializer, Serializer};
@@ -28,6 +28,7 @@ pub enum Message {
 pub struct ImageArgs {
     pub path: PathBuf,
     pub resize: ResizeOption,
+    pub fill_rgb: (u8, u8, u8),
     pub transition: TransitionKind,
     pub transition_options: TransitionOptions,
     pub ease: EaseKind,
@@ -42,6 +43,7 @@ impl Message {
                 transition,
                 transition_options,
                 ease,
+                fill_rgb,
             } => {
                 let resize = if resize.no_resize {
                     ResizeOption::No
@@ -63,6 +65,8 @@ impl Message {
                     ease.ease.unwrap_or(DEFAULT_EASE_KIND)
                 };
 
+                let fill_rgb = fill_rgb.unwrap_or(RGB);
+
                 Self::Image {
                     args: ImageArgs {
                         path: image,
@@ -70,6 +74,7 @@ impl Message {
                         transition,
                         transition_options,
                         ease,
+                        fill_rgb,
                     },
                 }
             }

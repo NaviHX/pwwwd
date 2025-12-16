@@ -10,9 +10,13 @@ mod transition_state;
 mod vertex;
 
 use anyhow::{Result, anyhow};
-use common::cli::{
-    client::{EaseKind, TransitionKind, TransitionOptions},
-    server as server_cli,
+use common::{
+    cli::{
+        client::{EaseKind, TransitionKind, TransitionOptions},
+        server as server_cli,
+    },
+    restore::Restore,
+    utils,
 };
 use config::Configurable;
 use off_screen::OffScreen;
@@ -30,10 +34,7 @@ use smithay_client_toolkit::{
     },
     shm::{Shm, ShmHandler},
 };
-use std::{
-    os::unix::ffi::OsStrExt,
-    path::{Path, PathBuf},
-};
+use std::path::{Path, PathBuf};
 use tracing::{debug, error, warn};
 use wayland_client::{Connection, QueueHandle, globals::GlobalList};
 use wgpu::{self, util::DeviceExt};
@@ -227,7 +228,8 @@ impl WallpaperBuilder {
         };
 
         // After loading the image, try to save the path into state file.
-        Wallpaper::save_image_path_to_restore_file(&load_wallpaper).await;
+        Wallpaper::save_image_path_to_restore_file(&load_wallpaper, resize_option, fill_color)
+            .await;
 
         debug!("Trying to create a sampler ...");
         let sampler = device.create_sampler(&sampler::desc(
@@ -491,6 +493,7 @@ impl Wallpaper {
         qh: &QueueHandle<Self>,
         image_path: &Path,
         resize_option: server_cli::ResizeOption,
+        fill_rgb: (f64, f64, f64),
     ) -> Result<()> {
         // Load the new image.
         debug!("Trying to load the new image: {image_path:?}");
@@ -529,8 +532,11 @@ impl Wallpaper {
             texture
         };
 
+        // Set new fill color
+        self.fill_color = fill_rgb;
+
         // If the new image is loaded, try to write the image path into the state file.
-        Self::save_image_path_to_restore_file(image_path).await;
+        Self::save_image_path_to_restore_file(image_path, resize_option, self.fill_color).await;
 
         // Set the new texture;
         debug!("Set new texture for wallpaper ...");
@@ -586,6 +592,7 @@ impl Wallpaper {
         qh: &QueueHandle<Self>,
         img_path: &Path,
         resize_option: server_cli::ResizeOption,
+        fill_rgb: (f64, f64, f64),
         duration: f64,
         fps: f64,
         transition_kind: TransitionKind,
@@ -631,7 +638,7 @@ impl Wallpaper {
 
         debug!("Loading the new image: {img_path:?}");
         if let Err(e) = self
-            .change_image_and_request_frame(qh, img_path, resize_option)
+            .change_image_and_request_frame(qh, img_path, resize_option, fill_rgb)
             .await
         {
             error!("Failed to load the new image to create transition! : {e}");
@@ -719,13 +726,24 @@ impl Wallpaper {
     }
 
     #[tracing::instrument]
-    async fn save_image_path_to_restore_file(path: &Path) {
+    async fn save_image_path_to_restore_file(
+        path: &Path,
+        resize_option: server_cli::ResizeOption,
+        fill_rgb: (f64, f64, f64),
+    ) {
         match server_cli::default_restore_path() {
             Err(e) => error!("Failed to get restore file path: {e}"),
             Ok(restore_file_path) => {
-                if let Err(e) =
-                    tokio::fs::write(restore_file_path, path.as_os_str().as_bytes()).await
-                {
+                let rgb = utils::rgb_f64_to_u8(fill_rgb);
+                let restore = Restore::new(path, resize_option, rgb);
+
+                let mut buf = vec![];
+                if let Err(e) = restore.serialize_to(&mut buf) {
+                    error!("Failed to deserialize restore option: {e}");
+                    return;
+                }
+
+                if let Err(e) = tokio::fs::write(restore_file_path, &buf).await {
                     error!("Failed to write image path to restore file: {e}");
                 }
             }
