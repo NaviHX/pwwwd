@@ -244,9 +244,18 @@ async fn process_message(
                 transition_options,
                 ease,
                 fill_rgb,
+                display,
             } = args;
 
             let fill_rgb = (fill_rgb.0 as f64, fill_rgb.1 as f64, fill_rgb.2 as f64);
+
+            // TODO: Support multi-display
+            // Route `image` subcommand to corresponding display.
+            if let Some(display_str) = display {
+                error!(
+                    "TODO: multi-display wallpaper switching is not supported now!: {display_str}",
+                );
+            }
 
             if transition != TransitionKind::No {
                 info!("Starting transition: {path:?} ...");

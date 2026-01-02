@@ -32,6 +32,7 @@ pub struct ImageArgs {
     pub transition: TransitionKind,
     pub transition_options: TransitionOptions,
     pub ease: EaseKind,
+    pub display: Option<String>,
 }
 
 impl Message {
@@ -44,6 +45,7 @@ impl Message {
                 transition_options,
                 ease,
                 fill_rgb,
+                display,
             } => {
                 let resize = if resize.no_resize {
                     ResizeOption::No
@@ -75,6 +77,7 @@ impl Message {
                         transition_options,
                         ease,
                         fill_rgb,
+                        display,
                     },
                 }
             }

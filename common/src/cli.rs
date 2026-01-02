@@ -159,6 +159,10 @@ pub mod client {
             /// Which color to fill the padding with when loaded image does not fill the screen
             #[arg(long ,short, value_parser = parse_rgb)]
             fill_rgb: Option<(u8, u8, u8)>,
+
+            /// Which display the new wallpaper image will be shown
+            #[arg(long, short)]
+            display: Option<String>,
         },
 
         /// Kill pwwwd daemon
